@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArtisanAI | Digital Marketplace</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- =====================================================
+     NAVBAR
+===================================================== -->
+
+<nav class="navbar">
+
+    <div
+        class="brand"
+        onclick="scrollToSection('home')"
+    >
+
+        <div class="brand-logo">
+            A
+        </div>
+
+        <div class="brand-name">
+            Artisan<span>AI</span>
+        </div>
+
+    </div>
+
+
+    <div class="nav-links" id="navLinksContainer">
+
+        <a onclick="scrollToSection('home')">
+            Home
+        </a>
+
+        <a onclick="scrollToSection('features')">
+            AI Features
+        </a>
+
+        <a onclick="scrollToSection('marketplace')">
+            Marketplace
+        </a>
+
+        <a onclick="scrollToSection('how')">
+            How It Works
+        </a>
+
+    </div>
+
+
+    <div class="nav-actions" id="navAuthContainer">
+
+        <button
+            class="icon-btn"
+            onclick="showToast('Language options opened 🌐')"
+        >
+            🌐
+        </button>
+
+        <button
+            class="icon-btn"
+            onclick="showToast('Cart is currently empty 🛒')"
+        >
+            🛒
+        </button>
+
+        <button
+            class="login-btn"
+            onclick="openLogin()"
+        >
+            Login
+        </button>
+
+    </div>
+
+</nav>
+
+
+
+<!-- =====================================================
+     HERO
+===================================================== -->
+
+<section
+    class="hero"
+    id="home"
+>
+
+    <div class="hero-left">
+
+        <span class="badge">
+            ✨ AI-POWERED DIGITAL MARKETPLACE
+        </span>
+
+        <h1>
+            Your Craft.
+            <br>
+            Your Story.
+            <br>
+            <span>Your Digital Market.</span>
+        </h1>
+
+        <p>
+            ArtisanAI helps traditional artisans turn
+            handmade products into professional digital
+            listings using simple AI-powered tools.
+            No technical knowledge required.
+        </p>
+
+
+        <div class="hero-buttons">
+
+            <button
+                class="main-btn"
+                onclick="openAddProduct()"
+            >
+                🚀 Start Selling
+            </button>
+
+            <button
+                class="secondary-btn"
+                onclick="scrollToSection('marketplace')"
+            >
+                🛍 Explore Products
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="hero-right">
+
+        <div class="artisan-card">
+
+            <div class="artisan-emoji">
+                🧑🎨
+            </div>
+
+
+            <div class="floating-card float-one">
+                ✨ AI Catalog Ready
+            </div>
+
+
+            <div class="floating-card float-two">
+                🎙️ Voice Supported
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     FEATURES
+===================================================== -->
+
+<section
+    class="section"
+    id="features"
+>
+
+    <div class="section-heading">
+
+        <small>
+            Powerful But Simple
+        </small>
+
+        <h2>
+            Everything an Artisan Needs
+        </h2>
+
+        <p>
+            Simple tools designed for real-world
+            artisans and small businesses.
+        </p>
+
+    </div>
+
+
+    <div class="features">
+
+
+        <div class="feature">
+
+            <div class="feature-icon purple-bg">
+                📸
+            </div>
+
+            <h3>
+                AI Image Studio
+            </h3>
+
+            <p>
+                Upload a simple product photo and
+                prepare it for a professional digital
+                marketplace.
+            </p>
+
+        </div>
+
+
+        <div class="feature">
+
+            <div class="feature-icon orange-bg">
+                🎙️
+            </div>
+
+            <h3>
+                Voice Cataloging
+            </h3>
+
+            <p>
+                Describe your product using your own
+                voice instead of typing a long description.
+            </p>
+
+        </div>
+
+
+        <div class="feature">
+
+            <div class="feature-icon green-bg">
+                💰
+            </div>
+
+            <h3>
+                Smart Pricing
+            </h3>
+
+            <p>
+                Get an easy-to-understand recommended
+                selling price based on your costs.
+            </p>
+
+        </div>
+
+
+        <div class="feature">
+
+            <div class="feature-icon blue-bg">
+                🌐
+            </div>
+
+            <h3>
+                Multiple Languages
+            </h3>
+
+            <p>
+                Create product descriptions in
+                English and regional Indian languages.
+            </p>
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     HOW IT WORKS
+===================================================== -->
+
+<section
+    class="section how"
+    id="how"
+>
+
+    <div class="section-heading">
+
+        <small>
+            Four Simple Steps
+        </small>
+
+        <h2>
+            From Craft to Customer
+        </h2>
+
+        <p>
+            You don't need to understand technology.
+            Just follow four simple steps.
+        </p>
+
+    </div>
+
+
+    <div class="steps">
+
+
+        <div class="step">
+
+            <div class="step-number">
+                01
+            </div>
+
+            <h3>
+                Upload
+            </h3>
+
+            <p>
+                Take a photo of your handmade product
+                and upload it.
+            </p>
+
+        </div>
+
+
+        <div class="step">
+
+            <div class="step-number">
+                02
+            </div>
+
+            <h3>
+                Describe
+            </h3>
+
+            <p>
+                Speak about your product in your
+                preferred language.
+            </p>
+
+        </div>
+
+
+        <div class="step">
+
+            <div class="step-number">
+                03
+            </div>
+
+            <h3>
+                Improve
+            </h3>
+
+            <p>
+                AI helps create a professional listing
+                and price recommendation.
+            </p>
+
+        </div>
+
+
+        <div class="step">
+
+            <div class="step-number">
+                04
+            </div>
+
+            <h3>
+                Sell
+            </h3>
+
+            <p>
+                Publish your product and connect with
+                potential buyers.
+            </p>
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     MARKETPLACE
+===================================================== -->
+
+<section
+    class="section marketplace"
+    id="marketplace"
+>
+
+    <div class="section-heading">
+
+        <small>
+            Discover Handmade India
+        </small>
+
+        <h2>
+            Artisan Marketplace
+        </h2>
+
+        <p>
+            Discover unique handmade products
+            directly from artisans.
+        </p>
+
+    </div>
+
+
+    <div class="search-box">
+
+        <input
+            id="searchInput"
+            placeholder="Search sarees, pottery, baskets..."
+        >
+
+        <button onclick="searchProducts()">
+            🔍 Search
+        </button>
+
+    </div>
+
+
+    <div
+        class="products"
+        id="productGrid"
+    >
+
+
+        <div
+            class="product"
+            data-name="Handwoven Cotton Saree"
+        >
+
+            <div class="product-image">
+                🧵
+            </div>
+
+            <div class="product-info">
+
+                <span class="product-category">
+                    Textile
+                </span>
+
+                <h3>
+                    Handwoven Cotton Saree
+                </h3>
+
+                <div class="product-maker">
+                    By Lakshmi Handlooms
+                </div>
+
+                <div class="product-bottom">
+
+                    <div class="price">
+                        ₹2,500
+                    </div>
+
+                    <button
+                        class="buy-btn"
+                        onclick="addToCart('Handwoven Cotton Saree')"
+                    >
+                        Add to Cart
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <div
+            class="product"
+            data-name="Traditional Bamboo Basket"
+        >
+
+            <div class="product-image">
+                🧺
+            </div>
+
+            <div class="product-info">
+
+                <span class="product-category">
+                    Handicraft
+                </span>
+
+                <h3>
+                    Traditional Bamboo Basket
+                </h3>
+
+                <div class="product-maker">
+                    By Rural Craft Studio
+                </div>
+
+                <div class="product-bottom">
+
+                    <div class="price">
+                        ₹850
+                    </div>
+
+                    <button
+                        class="buy-btn"
+                        onclick="addToCart('Traditional Bamboo Basket')"
+                    >
+                        Add to Cart
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <div
+            class="product"
+            data-name="Terracotta Pot"
+        >
+
+            <div class="product-image">
+                🏺
+            </div>
+
+            <div class="product-info">
+
+                <span class="product-category">
+                    Pottery
+                </span>
+
+                <h3>
+                    Handmade Terracotta Pot
+                </h3>
+
+                <div class="product-maker">
+                    By Kumar Pottery
+                </div>
+
+                <div class="product-bottom">
+
+                    <div class="price">
+                        ₹650
+                    </div>
+
+                    <button
+                        class="buy-btn"
+                        onclick="addToCart('Handmade Terracotta Pot')"
+                    >
+                        Add to Cart
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <div
+            class="product"
+            data-name="Wooden Craft"
+        >
+
+            <div class="product-image">
+                🪵
+            </div>
+
+            <div class="product-info">
+
+                <span class="product-category">
+                    Wood Craft
+                </span>
+
+                <h3>
+                    Hand Carved Wooden Art
+                </h3>
+
+                <div class="product-maker">
+                    By Heritage Wood Crafts
+                </div>
+
+                <div class="product-bottom">
+
+                    <div class="price">
+                        ₹1,800
+                    </div>
+
+                    <button
+                        class="buy-btn"
+                        onclick="addToCart('Hand Carved Wooden Art')"
+                    >
+                        Add to Cart
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     ARTISAN DASHBOARD
+===================================================== -->
+
+<section
+    class="section dashboard-section"
+>
+
+    <div class="section-heading">
+
+        <small>
+            For Artisans
+        </small>
+
+        <h2>
+            Your Business Dashboard
+        </h2>
+
+        <p>
+            A simple view of your digital business.
+        </p>
+
+    </div>
+
+
+    <div class="dashboard">
+
+
+        <div class="dashboard-header">
+
+            <div>
+
+                <h2 id="dashboardWelcome">
+                    Welcome back, Artisan 👋
+                </h2>
+
+                <p style="
+                    color:#777;
+                    font-size:11px;
+                    margin-top:5px;
+                ">
+                    Here's how your products are performing.
+                </p>
+
+            </div>
+
+            <button
+                class="main-btn"
+                onclick="openAddProduct()"
+            >
+                + Add Product
+            </button>
+
+        </div>
+
+
+        <div class="dashboard-grid">
+
+
+            <div class="dash-card">
+
+                <p>
+                    Products
+                </p>
+
+                <h3>
+                    24
+                </h3>
+
+            </div>
+
+
+            <div class="dash-card">
+
+                <p>
+                    Views
+                </p>
+
+                <h3>
+                    1,284
+                </h3>
+
+            </div>
+
+
+            <div class="dash-card">
+
+                <p>
+                    Orders
+                </p>
+
+                <h3>
+                    38
+                </h3>
+
+            </div>
+
+
+            <div class="dash-card">
+
+                <p>
+                    Revenue
+                </p>
+
+                <h3>
+                    ₹42.5K
+                </h3>
+
+            </div>
+
+
+        </div>
+
+
+        <div class="dashboard-main">
+
+
+            <div class="chart">
+
+                <h3>
+                    Product Views
+                </h3>
+
+                <div class="bars">
+
+                    <div
+                        class="bar"
+                        style="height:40%;"
+                    ></div>
+
+                    <div
+                        class="bar"
+                        style="height:55%;"
+                    ></div>
+
+                    <div
+                        class="bar"
+                        style="height:48%;"
+                    ></div>
+
+                    <div
+                        class="bar"
+                        style="height:75%;"
+                    ></div>
+
+                    <div
+                        class="bar"
+                        style="height:62%;"
+                    ></div>
+
+                    <div
+                        class="bar"
+                        style="height:90%;"
+                    ></div>
+
+                    <div
+                        class="bar"
+                        style="height:78%;"
+                    ></div>
+
+                </div>
+
+            </div>
+
+
+            <div class="ai-box">
+
+                <h3>
+                    ✨ AI Business Insight
+                </h3>
+
+                <p>
+                    Your textile products are receiving
+                    more views this week. Consider adding
+                    similar products to your catalog.
+                </p>
+
+                <button
+                    class="main-btn"
+                    onclick="showToast('AI recommendation opened ✨')"
+                >
+                    View Recommendation
+                </button>
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     CTA
+===================================================== -->
+
+<section class="cta">
+
+    <h2>
+        Your Craft Deserves a Bigger Audience.
+    </h2>
+
+    <p>
+        Bring your traditional skills into the digital
+        marketplace with simple AI-powered tools.
+    </p>
+
+    <button
+        class="secondary-btn"
+        onclick="openRegister()"
+    >
+        Create Your Artisan Account
+    </button>
+
+</section>
+
+
+
+<!-- =====================================================
+     FOOTER
+===================================================== -->
+
+<footer>
+
+    <div class="footer-grid">
+
+
+        <div>
+
+            <h3>
+                ArtisanAI
+            </h3>
+
+            <p>
+                Empowering traditional artisans with
+                accessible AI technology and digital
+                marketplace tools.
+            </p>
+
+        </div>
+
+
+        <div>
+
+            <h3>
+                Platform
+            </h3>
+
+            <ul>
+
+                <li>AI Image Studio</li>
+
+                <li>Voice Catalog</li>
+
+                <li>Smart Pricing</li>
+
+                <li>Marketplace</li>
+
+            </ul>
+
+        </div>
+
+
+        <div>
+
+            <h3>
+                For Buyers
+            </h3>
+
+            <ul>
+
+                <li>Browse Products</li>
+
+                <li>Categories</li>
+
+                <li>Orders</li>
+
+                <li>Favorites</li>
+
+            </ul>
+
+        </div>
+
+
+        <div>
+
+            <h3>
+                Support
+            </h3>
+
+            <ul>
+
+                <li>Help Center</li>
+
+                <li>Contact</li>
+
+                <li>Privacy</li>
+
+                <li>Terms</li>
+
+            </ul>
+
+        </div>
+
+
+    </div>
+
+
+    <div class="footer-bottom">
+
+        © 2026 ArtisanAI. Frontend prototype for demonstration.
+
+    </div>
+
+</footer>
+
+
+
+<!-- =====================================================
+     MODAL
+===================================================== -->
+
+<div
+    class="modal"
+    id="modal"
+>
+
+    <div class="modal-box">
+
+        <button
+            class="close"
+            onclick="closeModal()"
+        >
+            ×
+        </button>
+
+        <div id="modalContent">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- JAVASCRIPT -->
+<script src="script.js"></script>
+
+</body>
+
+</html>
