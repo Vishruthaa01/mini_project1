@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Add Product - VendorConnect</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="../css/style.css">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </head>
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-light border-bottom">
+            <div class="container">
+                <a class="navbar-brand fw-bold fs-4" href="../index.html">VendorConnect</a>
+                <div class="ms-auto">
+                    <a href="vendor.html" class="btn btn-outline-primary">Back to Dashboard</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container my-5" style="max-width: 700px;">
+            <div class="card p-4">
+                <h3 class="fw-bold mb-3">Add New Product</h3>
+                <p class="text-secondary mb-4">Enter product details to add it to your vendor store listing.</p>
+
+                <form id="addProductForm" onsubmit="handlePublishProduct(event)">
+                    <div class="mb-3">
+                        <label for="prodName" class="form-label fw-semibold">Product Name *</label>
+                        <input type="text" class="form-control" id="prodName" placeholder="e.g. Handwoven Cotton Saree" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="prodCategory" class="form-label fw-semibold">Category *</label>
+                        <select class="form-select" id="prodCategory" required>
+                            <option value="">Select Category</option>
+                            <option value="Textiles & Handloom">Textiles & Handloom</option>
+                            <option value="Pottery & Clay Art">Pottery & Clay Art</option>
+                            <option value="Woodcraft">Woodcraft</option>
+                            <option value="Handmade Jewelry">Handmade Jewelry</option>
+                            <option value="Bamboo & Cane">Bamboo & Cane</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="prodDesc" class="form-label fw-semibold">Description *</label>
+                        <textarea class="form-control" id="prodDesc" rows="3" placeholder="Enter detailed product description..." required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="prodImage" class="form-label fw-semibold">Upload Image *</label>
+                        <input type="file" class="form-control" id="prodImage" accept="image/*" onchange="previewImageFile(event)">
+                        <input type="hidden" id="prodImageBase64">
+                        <div id="imagePreviewContainer" class="mt-2 d-none">
+                            <img id="imagePreview" src="" alt="Product Preview" class="img-thumbnail" style="max-height: 150px;">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="prodPrice" class="form-label fw-semibold">Pricing (₹) *</label>
+                            <input type="number" class="form-control" id="prodPrice" placeholder="e.g. 1500" min="1" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="prodStock" class="form-label fw-semibold">Stock Quantity *</label>
+                            <input type="number" class="form-control" id="prodStock" placeholder="e.g. 10" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg w-100">Publish Product</button>
+                        <a href="vendor.html" class="btn btn-outline-primary btn-lg">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function previewImageFile(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('prodImageBase64').value = e.target.result;
+                        document.getElementById('imagePreview').src = e.target.result;
+                        document.getElementById('imagePreviewContainer').classList.remove('d-none');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            function handlePublishProduct(event) {
+                event.preventDefault();
+                
+                const name = document.getElementById('prodName').value.trim();
+                const category = document.getElementById('prodCategory').value;
+                const description = document.getElementById('prodDesc').value.trim();
+                let image = document.getElementById('prodImageBase64').value;
+                const price = document.getElementById('prodPrice').value;
+                const stock = document.getElementById('prodStock').value;
+
+                // Fallback sample image if no file was picked
+                if (!image) {
+                    image = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
+                }
+
+                const newProduct = {
+                    id: Date.now(),
+                    name,
+                    category,
+                    description,
+                    image,
+                    price,
+                    stock
+                };
+
+                // Retrieve existing products from localStorage
+                const storedProducts = JSON.parse(localStorage.getItem('vendor_products')) || [];
+                storedProducts.unshift(newProduct);
+                localStorage.setItem('vendor_products', JSON.stringify(storedProducts));
+
+                // Redirect to vendor dashboard
+                window.location.href = 'vendor.html';
+            }
+        </script>
+    </body>
+</html>
