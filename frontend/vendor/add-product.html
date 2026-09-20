@@ -1,38 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Add Product - VendorConnect</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="../css/style.css">
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    </head>
-    <body>
-        <nav class="navbar navbar-expand-lg navbar-light border-bottom">
-            <div class="container">
-                <a class="navbar-brand fw-bold fs-4" href="../index.html">VendorConnect</a>
-                <div class="ms-auto">
-                    <a href="vendor.html" class="btn btn-outline-primary">Back to Dashboard</a>
-                </div>
-            </div>
-        </nav>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Product - AI Artisan Studio</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="vendor.html" class="btn btn-outline">Dashboard</a>
+            <a href="add-product.html" class="btn btn-primary">Add Products</a>
+            <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary">Logout</a>
+        </div>
+    </nav>
 
-        <div class="container my-5" style="max-width: 700px;">
-            <div class="card p-4">
-                <h3 class="fw-bold mb-3">Add New Product</h3>
-                <p class="text-secondary mb-4">Enter product details to add it to your vendor store listing.</p>
+    <div class="container">
+        <div class="text-center mb-2">
+            <h2>Create New Listing</h2>
+            <p>Fill in the product details manually or use our AI assistants to speed up the process.</p>
+        </div>
 
-                <form id="addProductForm" onsubmit="handlePublishProduct(event)">
-                    <div class="mb-3">
-                        <label for="prodName" class="form-label fw-semibold">Product Name *</label>
-                        <input type="text" class="form-control" id="prodName" placeholder="e.g. Handwoven Cotton Saree" required>
+        <form id="addProductForm" onsubmit="handlePublishProduct(event)">
+            
+            <!-- Section 1: Basic Info & AI Text Assistant -->
+            <div class="form-section">
+                <h3>1. Basic Information</h3>
+                
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Product Title *</label>
+                        <input type="text" class="form-control" id="title" required placeholder="e.g. Handwoven Silk Saree">
                     </div>
-
-                    <div class="mb-3">
-                        <label for="prodCategory" class="form-label fw-semibold">Category *</label>
-                        <select class="form-select" id="prodCategory" required>
-                            <option value="">Select Category</option>
+                    <div class="form-group">
+                        <label class="form-label">Category *</label>
+                        <select class="form-control" id="category" required>
+                            <option value="">Select a Category...</option>
                             <option value="Textiles & Handloom">Textiles & Handloom</option>
                             <option value="Pottery & Clay Art">Pottery & Clay Art</option>
                             <option value="Woodcraft">Woodcraft</option>
@@ -40,87 +46,295 @@
                             <option value="Bamboo & Cane">Bamboo & Cane</option>
                         </select>
                     </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label for="prodDesc" class="form-label fw-semibold">Description *</label>
-                        <textarea class="form-control" id="prodDesc" rows="3" placeholder="Enter detailed product description..." required></textarea>
-                    </div>
+                <div class="form-group mt-1">
+                    <label class="form-label">Full Product Description *</label>
+                    <textarea class="form-control" id="desc" rows="4" required placeholder="Detail the craftsmanship, origin, and materials..."></textarea>
+                </div>
 
-                    <div class="mb-3">
-                        <label for="prodImage" class="form-label fw-semibold">Upload Image *</label>
-                        <input type="file" class="form-control" id="prodImage" accept="image/*" onchange="previewImageFile(event)">
-                        <input type="hidden" id="prodImageBase64">
-                        <div id="imagePreviewContainer" class="mt-2 d-none">
-                            <img id="imagePreview" src="" alt="Product Preview" class="img-thumbnail" style="max-height: 150px;">
-                        </div>
-                    </div>
-
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label for="prodPrice" class="form-label fw-semibold">Pricing (₹) *</label>
-                            <input type="number" class="form-control" id="prodPrice" placeholder="e.g. 1500" min="1" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="prodStock" class="form-label fw-semibold">Stock Quantity *</label>
-                            <input type="number" class="form-control" id="prodStock" placeholder="e.g. 10" min="1" required>
-                        </div>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg w-100">Publish Product</button>
-                        <a href="vendor.html" class="btn btn-outline-primary btn-lg">Cancel</a>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <script>
-            function previewImageFile(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        document.getElementById('prodImageBase64').value = e.target.result;
-                        document.getElementById('imagePreview').src = e.target.result;
-                        document.getElementById('imagePreviewContainer').classList.remove('d-none');
-                    };
-                    reader.readAsDataURL(file);
-                }
-            }
-
-            function handlePublishProduct(event) {
-                event.preventDefault();
                 
-                const name = document.getElementById('prodName').value.trim();
-                const category = document.getElementById('prodCategory').value;
-                const description = document.getElementById('prodDesc').value.trim();
-                let image = document.getElementById('prodImageBase64').value;
-                const price = document.getElementById('prodPrice').value;
-                const stock = document.getElementById('prodStock').value;
+                <div class="bg-nav mb-2">
+                    <label class="form-label text-main font-bold">AI Catalog Assistant (Optional)</label>
+                    <span class="help-text">Describe your product via text or voice, and we will write a professional title and description for you.</span>
+                    <textarea class="form-control mb-1" id="raw-description-input" rows="2" placeholder="e.g. Red silk saree with gold border..."></textarea>
+                    
+                    <div class="d-flex gap-1 flex-wrap align-center">
+                        <button type="button" id="mic-btn" class="btn btn-outline" onclick="toggleRecording()">🎤 Record Voice</button>
+                        <button type="button" onclick="enhanceTextWithAI()" id="enhance-text-btn" class="btn btn-secondary">✨ Generate Description</button>
+                        <audio id="audio-playback" controls class="d-none h-40"></audio>
+                    </div>
+                </div>
+            </div>
 
-                // Fallback sample image if no file was picked
-                if (!image) {
-                    image = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
+            <!-- Section 2: Media & AI Studio -->
+            <div class="form-section">
+                <h3>2. Product Media</h3>
+                <span class="help-text">Upload a photo or capture one now. Our AI will automatically remove the background and enhance lighting for a studio-quality look.</span>
+                
+                <div class="grid-2">
+                    <div>
+                        <div class="video-wrapper">
+                            <span id="camera-placeholder" class="text-white">Camera Offline</span>
+                            <video id="camera-stream" autoplay playsinline class="d-none"></video>
+                        </div>
+                        <div class="mt-1 d-flex gap-05">
+                            <button type="button" onclick="startCamera()" class="btn btn-outline" id="btn-start-cam">Start Camera</button>
+                            <button type="button" onclick="snapPhoto()" class="btn btn-danger d-none" id="btn-snap-cam">Snap Photo</button>
+                            <div class="flex-1 text-right">
+                                <button><button type="button" class="btn btn-outline" style="padding: 0;"><label for="fallback-upload" class="cursor-pointer d-inline-block" style="padding: 0.75rem 1.5rem; width: 100%; margin: 0;">Upload File</label></button></button>
+                                <input type="file" id="fallback-upload" accept="image/*" class="d-none" onchange="handleFileUpload(event)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="img-preview-box">
+                            <p id="ai-status" class="mb-1 font-bold text-muted">Awaiting Image...</p>
+                            <img id="enhanced-image-preview" src="" class="d-none" alt="Studio Ready">
+                        </div>
+                        <input type="hidden" id="prodImageBase64">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Pricing & Inventory -->
+            <div class="form-section">
+                <h3>3. Pricing & Inventory</h3>
+                
+                <div class="bg-nav mb-2">
+                    <label class="form-label text-main font-bold">AI Pricing Assistant (Optional)</label>
+                    <span class="help-text">Not sure what to charge? Enter your costs and let AI suggest market rates.</span>
+                    <div class="grid-2 mb-1">
+                        <div class="form-group">
+                            <label class="form-label">Raw Material Cost (₹)</label>
+                            <input type="number" class="form-control mb-0" id="raw_material" placeholder="e.g. 500" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Labor Time (Hours)</label>
+                            <input type="number" class="form-control mb-0" id="labor_hours" placeholder="e.g. 10" min="0">
+                        </div>
+                    </div>
+                    <button type="button" onclick="calculatePrice()" class="btn btn-secondary">Calculate Suggested Prices</button>
+
+                    <div id="price-tiers" class="grid-3 d-none mt-15">
+                        <div class="tier-card" onclick="applyPrice(this, 'fair')">
+                            <h4>Fair Base</h4>
+                            <div class="price" id="tier-fair">₹0</div>
+                            <button type="button" class="btn btn-outline w-100">Apply</button>
+                        </div>
+                        <div class="tier-card" onclick="applyPrice(this, 'market')">
+                            <h4>Market Rec.</h4>
+                            <div class="price" id="tier-market">₹0</div>
+                            <button type="button" class="btn btn-primary w-100">Apply</button>
+                        </div>
+                        <div class="tier-card" onclick="applyPrice(this, 'premium')">
+                            <h4>Premium</h4>
+                            <div class="price" id="tier-premium">₹0</div>
+                            <button type="button" class="btn btn-outline w-100">Apply</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label class="form-label">Selling Price (₹) *</label>
+                        <input type="number" class="form-control" id="final_price" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stock Quantity *</label>
+                        <input type="number" class="form-control" id="stock" required min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SKU (Optional)</label>
+                        <input type="text" class="form-control" id="sku" placeholder="e.g. SR-COT-001">
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-right mb-3">
+                <a href="vendor.html" class="mr-15 text-muted font-bold">Cancel</a>
+                <button type="submit" class="btn btn-primary btn-lg">Publish Product Catalog</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // --- SECTION 1: AI CATALOG ASSISTANT ---
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        async function toggleRecording() {
+            const btn = document.getElementById('mic-btn');
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                btn.classList.remove('recording-pulse');
+                btn.innerText = "🎤 Record Voice";
+            } else {
+                try {
+                    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(audioStream);
+                    mediaRecorder.start();
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        enhanceTextWithAI(true);
+                    };
+                    btn.classList.add('recording-pulse');
+                    btn.innerText = "⏹ Stop Recording";
+                } catch (e) {
+                    alert('Microphone access denied.');
                 }
-
-                const newProduct = {
-                    id: Date.now(),
-                    name,
-                    category,
-                    description,
-                    image,
-                    price,
-                    stock
-                };
-
-                // Retrieve existing products from localStorage
-                const storedProducts = JSON.parse(localStorage.getItem('vendor_products')) || [];
-                storedProducts.unshift(newProduct);
-                localStorage.setItem('vendor_products', JSON.stringify(storedProducts));
-
-                // Redirect to vendor dashboard
-                window.location.href = 'vendor.html';
             }
-        </script>
-    </body>
+        }
+
+        function enhanceTextWithAI(fromVoice = false) {
+            const rawText = document.getElementById('raw-description-input').value.trim();
+            if (!fromVoice && !rawText) return alert("Please type a rough description or record a voice note!");
+            
+            const btn = document.getElementById('enhance-text-btn');
+            const origText = btn.innerText;
+            btn.innerText = "Generating...";
+            btn.disabled = true;
+
+            setTimeout(() => {
+                document.getElementById('title').value = "Premium Handcrafted " + (rawText.split(' ')[0] || "Artisan Product");
+                document.getElementById('desc').value = "A beautifully crafted piece featuring traditional artistry. " + rawText + " This unique item guarantees premium quality and exquisite attention to detail, perfect for adding elegance to any collection.";
+                
+                document.getElementById('category').value = "Textiles & Handloom";
+
+                btn.innerText = origText;
+                btn.disabled = false;
+            }, 1500);
+        }
+
+        // --- SECTION 2: AI IMAGE STUDIO ---
+        let stream = null;
+        const video = document.getElementById('camera-stream');
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                video.srcObject = stream;
+                video.classList.remove('d-none');
+                document.getElementById('camera-placeholder').classList.add('d-none');
+                document.getElementById('btn-start-cam').classList.add('d-none');
+                document.getElementById('btn-snap-cam').classList.remove('d-none');
+            } catch (e) {
+                alert('Camera access denied or unavailable.');
+            }
+        }
+
+        function snapPhoto() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const rawBase64 = canvas.toDataURL('image/jpeg');
+            
+            if(stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.classList.add('d-none');
+                document.getElementById('camera-placeholder').classList.remove('d-none');
+                document.getElementById('camera-placeholder').innerText = "Photo Captured";
+            }
+            
+            document.getElementById('btn-start-cam').classList.remove('d-none');
+            document.getElementById('btn-start-cam').innerText = "Retake Photo";
+            document.getElementById('btn-snap-cam').classList.add('d-none');
+
+            simulateAIEnhance(rawBase64);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    simulateAIEnhance(e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function simulateAIEnhance(base64) {
+            const status = document.getElementById('ai-status');
+            const img = document.getElementById('enhanced-image-preview');
+            
+            img.classList.add('d-none');
+            status.innerText = "✨ AI Analyzing lighting & removing background...";
+            
+            setTimeout(() => {
+                status.innerText = "Studio Ready ✓";
+                img.src = base64;
+                img.classList.remove('d-none');
+                img.classList.add('studio-filter');
+                img.classList.add('bg-white');
+                
+                document.getElementById('prodImageBase64').value = base64;
+            }, 1500);
+        }
+
+        // --- SECTION 3: SMART PRICING ---
+        let priceData = {};
+
+        function calculatePrice() {
+            const material = parseFloat(document.getElementById('raw_material').value) || 0;
+            const hours = parseFloat(document.getElementById('labor_hours').value) || 0;
+            
+            if (material === 0 && hours === 0) return alert('Enter material cost or labor hours');
+
+            const cost = material + (hours * 80);
+            
+            priceData = {
+                fair: Math.round(cost * 1.25),
+                market: Math.round(cost * 1.6),
+                premium: Math.round(cost * 2.2)
+            };
+
+            document.getElementById('tier-fair').innerText = '₹' + priceData.fair;
+            document.getElementById('tier-market').innerText = '₹' + priceData.market;
+            document.getElementById('tier-premium').innerText = '₹' + priceData.premium;
+            document.getElementById('price-tiers').classList.remove('d-none');
+        }
+
+        function applyPrice(cardElement, tier) {
+            document.querySelectorAll('.tier-card').forEach(el => {
+                el.style.borderColor = 'var(--border)';
+                el.style.backgroundColor = 'var(--card-bg)';
+            });
+            
+            cardElement.style.borderColor = 'var(--primary)';
+            cardElement.style.backgroundColor = 'var(--nav-bg)';
+
+            document.getElementById('final_price').value = priceData[tier];
+        }
+
+        // --- PUBLISH LOGIC ---
+        function handlePublishProduct(event) {
+            event.preventDefault();
+            
+            let image = document.getElementById('prodImageBase64').value;
+            if (!image) {
+                image = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
+            }
+
+            const newProduct = {
+                id: document.getElementById('sku').value || Date.now(),
+                name: document.getElementById('title').value,
+                category: document.getElementById('category').value,
+                description: document.getElementById('desc').value.substring(0, 80) + "...",
+                image: image,
+                price: document.getElementById('final_price').value,
+                stock: document.getElementById('stock').value
+            };
+
+            const storedProducts = JSON.parse(localStorage.getItem('vendor_products')) || [];
+            storedProducts.unshift(newProduct);
+            localStorage.setItem('vendor_products', JSON.stringify(storedProducts));
+
+            window.location.href = 'vendor.html';
+        }
+    </script>
+</body>
 </html>

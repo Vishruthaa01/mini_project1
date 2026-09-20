@@ -1,87 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>VendorConnect</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="css/style.css">
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    </head>
-    <body>
-        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm">
-            <div class="container">
-                <a class="navbar-brand fw-bold text-primary fs-4" href="index.html">VendorConnect</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <div class="ms-auto d-flex gap-2 mt-2 mt-lg-0">
-                        <a href="authentication/login.html" class="btn btn-outline-primary">Login</a>
-                        <a href="authentication/signup.html" class="btn btn-primary">Sign Up</a>
-                    </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VendorConnect</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="authentication/login.html" class="btn btn-outline">Login</a>
+            <a href="authentication/signup.html" class="btn btn-primary">Sign Up</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="hero">
+            <h1>Empowering Local Artisans</h1>
+            <p>VendorConnect is an AI-powered digital marketplace designed to empower traditional artisans, weavers, and micro-entrepreneurs. Showcase your handmade products and connect directly with buyers.</p>
+        </div>
+
+        <div class="grid mt-2">
+            <div class="card card-hover">
+                <h3 class="text-primary">For Vendors & Artisans</h3>
+                <p class="flex-1">Digitally empower your craft business with simple product management tools, automated AI product descriptions, smart pricing calculators, and digital catalog generation to expand your reach year-round.</p>
+                <div class="mt-2">
+                    <a href="authentication/signup.html" class="btn btn-primary" class="d-block w-100">Become a Vendor</a>
                 </div>
             </div>
-        </nav>
 
-        <div class="container my-5">
-            <div class="mb-5">
-                <h1 class="display-4 fw-bold mb-3">VendorConnect</h1>
-                <p class="lead text-secondary" style="max-width: 700px;">
-                    VendorConnect is an AI-powered digital marketplace and virtual business manager platform designed to empower traditional artisans, weavers, handicraft makers, and micro-entrepreneurs. It helps vendors showcase and manage their handmade products, create professional listings, estimate smart pricing, and connect directly with buyers.
-                </p>
-            </div>
-
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <div class="card h-100 p-2">
-                        <div class="card-body p-4 d-flex flex-column">
-                            <h3 class="fw-bold mb-3">For Vendors & Artisans</h3>
-                            <p class="text-secondary mb-4 flex-grow-1">
-                                Digitally empower your craft business with simple product management tools, automated AI product descriptions, smart pricing calculators, and digital catalog generation to expand your reach year-round.
-                            </p>
-                            <div>
-                                <a href="authentication/signup.html" class="btn btn-primary btn-lg w-100">Become Vendor</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card h-100 p-2">
-                        <div class="card-body p-4 d-flex flex-column">
-                            <h3 class="fw-bold mb-3">For Craft Buyers</h3>
-                            <p class="text-secondary mb-4 flex-grow-1">
-                                Discover authentic handloom products, pottery, wooden crafts, and handmade jewelry directly from rural creators. Support traditional craftsmanship with transparent pricing and direct enquiries.
-                            </p>
-                            <div>
-                                <a href="authentication/signup.html" class="btn btn-outline-primary btn-lg w-100">Become Buyer</a>
-                            </div>
-                        </div>
-                    </div>
+            <div class="card card-hover">
+                <h3 class="text-primary">For Craft Buyers</h3>
+                <p class="flex-1">Discover authentic handloom products, pottery, wooden crafts, and handmade jewelry directly from rural creators. Support traditional craftsmanship with transparent pricing and direct enquiries.</p>
+                <div class="mt-2">
+                    <a href="authentication/signup.html" class="btn btn-outline" class="d-block w-100">Become a Buyer</a>
                 </div>
             </div>
         </div>
+    </div>
 
-        <footer class="py-4 mt-auto border-top">
-            <div class="container">
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <h5 class="fw-bold mb-2">About VendorConnect</h5>
-                        <p class="small text-secondary mb-0" style="max-width: 450px;">
-                            VendorConnect is a digital marketplace platform dedicated to connecting traditional Indian weavers, micro-entrepreneurs, and handicraft artisans directly with conscious buyers across the nation.
-                        </p>
-                    </div>
-                    <div class="col-md-6 text-md-end">
-                        <h5 class="fw-bold mb-2">Contact Us</h5>
-                        <p class="small text-secondary mb-1">Email: <a href="mailto:support@vendorconnect.org" class="text-dark text-decoration-none">support@vendorconnect.org</a></p>
-                        <p class="small text-secondary mb-0">Phone: +91 1800-VENDOR-CONNECT</p>
-                    </div>
-                </div>
-                <div class="border-top mt-3 pt-3 text-center small text-secondary">
-                    &copy; 2026 VendorConnect. All Rights Reserved.
-                </div>
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="max-w-400 text-left">
+                <h4 class="mb-05">About VendorConnect</h4>
+                <p class="text-sm">A digital marketplace platform connecting traditional Indian weavers and handicraft artisans directly with conscious buyers across the nation.</p>
             </div>
-        </footer>
-    </body>
+            <div class="text-right">
+                <h4 class="mb-05">Contact Us</h4>
+                <p class="text-sm mb-05">Email: support@vendorconnect.org</p>
+                <p class="text-sm">Phone: +91 1800-VENDOR-CONNECT</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2026 VendorConnect. All Rights Reserved.
+        </div>
+    </footer>
+</body>
 </html>
