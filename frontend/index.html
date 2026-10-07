@@ -9,7 +9,7 @@
 <body>
     <nav class="navbar">
         <a href="index.html" class="brand">VendorConnect</a>
-        <div class="navbar-nav">
+        <div class="navbar-nav" id="nav-actions">
             <a href="authentication/login.html" class="btn btn-outline">Login</a>
             <a href="authentication/signup.html" class="btn btn-primary">Sign Up</a>
         </div>
@@ -56,5 +56,26 @@
             &copy; 2026 VendorConnect. All Rights Reserved.
         </div>
     </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const navActions = document.getElementById('nav-actions');
+                
+                if (user.role === 'vendor') {
+                    navActions.innerHTML = `
+                        <a href="vendor/vendor.html" class="btn btn-outline">Dashboard</a>
+                        <a href="authentication/login.html" class="btn btn-primary" onclick="localStorage.clear()">Logout</a>
+                    `;
+                } else {
+                    navActions.innerHTML = `
+                        <a href="buyer/buyer-profile.html" class="btn btn-outline">My Profile</a>
+                        <a href="authentication/login.html" class="btn btn-primary" onclick="localStorage.clear()">Logout</a>
+                    `;
+                }
+            }
+        });
+    </script>
 </body>
 </html>

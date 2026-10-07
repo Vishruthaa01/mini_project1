@@ -13,7 +13,7 @@
             <a href="vendor.html" class="btn btn-outline">Dashboard</a>
             <a href="add-product.html" class="btn btn-primary">Add Products</a>
             <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
-            <a href="../authentication/login.html" class="btn btn-secondary">Logout</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
         </div>
     </nav>
 
@@ -25,7 +25,7 @@
 
         <form id="addProductForm" onsubmit="handlePublishProduct(event)">
             
-            <!-- Section 1: Basic Info & AI Text Assistant -->
+          
             <div class="form-section">
                 <h3>1. Basic Information</h3>
                 
@@ -159,6 +159,7 @@
         </form>
     </div>
 
+    <script src="../js/api.js"></script>
     <script>
         // --- SECTION 1: AI CATALOG ASSISTANT ---
         let mediaRecorder = null;
@@ -262,7 +263,7 @@
             const img = document.getElementById('enhanced-image-preview');
             
             img.classList.add('d-none');
-            status.innerText = "✨ AI Analyzing lighting & removing background...";
+            status.innerText = "AI Analyzing lighting & removing background...";
             
             setTimeout(() => {
                 status.innerText = "Studio Ready ✓";
@@ -311,29 +312,29 @@
         }
 
         // --- PUBLISH LOGIC ---
-        function handlePublishProduct(event) {
+        async function handlePublishProduct(event) {
             event.preventDefault();
             
             let image = document.getElementById('prodImageBase64').value;
-            if (!image) {
-                image = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
-            }
 
             const newProduct = {
-                id: document.getElementById('sku').value || Date.now(),
+                sku: document.getElementById('sku').value,
                 name: document.getElementById('title').value,
                 category: document.getElementById('category').value,
-                description: document.getElementById('desc').value.substring(0, 80) + "...",
+                description: document.getElementById('desc').value,
                 image: image,
                 price: document.getElementById('final_price').value,
-                stock: document.getElementById('stock').value
+                stock: document.getElementById('stock').value,
+                rawMaterialsCost: document.getElementById('raw_material').value,
+                laborHours: document.getElementById('labor_hours').value
             };
 
-            const storedProducts = JSON.parse(localStorage.getItem('vendor_products')) || [];
-            storedProducts.unshift(newProduct);
-            localStorage.setItem('vendor_products', JSON.stringify(storedProducts));
-
-            window.location.href = 'vendor.html';
+            try {
+                await apiRequest('/products', 'POST', newProduct);
+                window.location.href = 'vendor.html';
+            } catch (error) {
+                alert('Error adding product: ' + error.message);
+            }
         }
     </script>
 </body>

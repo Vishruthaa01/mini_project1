@@ -20,7 +20,7 @@
             <h2 class="text-center" class="text-primary">Create an Account</h2>
             <p class="text-center">Join our community of artisans and buyers</p>
             
-            <form onsubmit="event.preventDefault(); window.location.href='../vendor/vendor.html';" class="mt-2">
+            <form onsubmit="handleSignup(event)" class="mt-2">
                 <div class="form-group">
                     <label class="form-label">Register as</label>
                     <div class="radio-group">
@@ -63,5 +63,28 @@
             </div>
         </div>
     </div>
+    <script src="../js/api.js"></script>
+    <script>
+        async function handleSignup(event) {
+            event.preventDefault();
+            const role = document.querySelector('input[name="signupRole"]:checked').value;
+
+            const body = {
+                name : document.getElementById('fullName').value.trim(),
+                phone : document.getElementById('phone').value.replace(/\s+/g,''),
+                email : document.getElementById('email').value.trim(),
+                password : document.getElementById('password').value,
+                role : role
+            };
+
+            try {
+                const data = await apiRequest('/auth/signup', 'POST', body);
+                saveSession(data);
+                goToDashboard(data.user);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+    </script>
 </body>
 </html>

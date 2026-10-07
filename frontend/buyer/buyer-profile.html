@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Profile - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="../index.html" class="btn btn-outline">Home</a>
+            <a href="buyer-profile.html" class="btn btn-primary">My Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container-sm">
+        <div class="card mt-2">
+            <h2 class="text-center text-primary">Buyer Profile</h2>
+            <p class="text-center">Manage your personal details and shipping address</p>
+            
+            <form onsubmit="updateProfile(event)" class="mt-2">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="email" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="tel" id="phone" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Shipping Address / Location</label>
+                    <textarea id="location" class="form-control" rows="3" placeholder="Enter your full shipping address"></textarea>
+                </div>
+                
+                <div class="flex flex-between mt-2">
+                    <a href="../index.html" class="btn btn-outline">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="../js/api.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadProfile);
+
+        async function loadProfile() {
+            try {
+                const user = await apiRequest('/auth/profile', 'GET');
+                document.getElementById('name').value = user.name || '';
+                document.getElementById('email').value = user.email || '';
+                document.getElementById('phone').value = user.phone || '';
+                document.getElementById('location').value = user.location || '';
+            } catch (error) {
+                alert('Error loading profile: ' + error.message);
+            }
+        }
+
+        async function updateProfile(event) {
+            event.preventDefault();
+            
+            const profileData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                location: document.getElementById('location').value
+            };
+
+            try {
+                const updatedUser = await apiRequest('/auth/profile', 'PUT', profileData);
+                const currentUser = JSON.parse(localStorage.getItem('user'));
+                localStorage.setItem('user', JSON.stringify({...currentUser, ...updatedUser}));
+                alert('Profile Updated Successfully!');
+            } catch (error) {
+                alert('Error updating profile: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -16,11 +16,11 @@ const productSchema = new mongoose.Schema(
         type: String,
         required: true,
         enum: [
-            'Textiles and Handloom',
-            'Pottery and Clay Art',
+            'Textiles & Handloom',
+            'Pottery & Clay Art',
             'Woodcraft',
             'Handmade Jewelry',
-            'Bamboo and Cane',
+            'Bamboo & Cane',
         ]
     },
     description: {

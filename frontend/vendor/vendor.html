@@ -13,7 +13,7 @@
             <a href="vendor.html" class="btn btn-outline">Dashboard</a>
             <a href="add-product.html" class="btn btn-primary">Add Products</a>
             <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
-            <a href="../authentication/login.html" class="btn btn-secondary">Logout</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
         </div>
     </nav>
 
@@ -37,55 +37,66 @@
         </div>
     </div>
 
+    <script src="../js/api.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', loadVendorProducts);
 
-        function loadVendorProducts() {
-            const storedProducts = JSON.parse(localStorage.getItem('vendor_products')) || [];
+        async function loadVendorProducts() {
             const emptyState = document.getElementById('emptyState');
             const productGrid = document.getElementById('productGrid');
 
-            if (storedProducts.length === 0) {
-                emptyState.classList.remove('d-none');
-                productGrid.classList.add('d-none');
-                return;
-            }
+            try {
+                const storedProducts = await apiRequest('/products/vendor', 'GET');
+                if (storedProducts.length === 0) {
+                    emptyState.classList.remove('d-none');
+                    productGrid.classList.add('d-none');
+                    return;
+                }
 
-            emptyState.classList.add('d-none');
-            productGrid.classList.remove('d-none');
-            productGrid.innerHTML = '';
+                emptyState.classList.add('d-none');
+                productGrid.classList.remove('d-none');
+                productGrid.innerHTML = '';
 
-            storedProducts.forEach(product => {
-                const card = document.createElement('div');
-                card.className = 'card card-hover';
-                
-                card.innerHTML = `
-                    <div class="w-100 mb-1 product-img-wrapper">
-                        <img src="${product.image}" alt="${product.name}" class="w-100 product-img">
-                    </div>
-                    <div>
-                        <span class="product-badge">${product.category}</span>
-                        <h3 class="mb-05">${product.name}</h3>
-                        <p class="text-sm mb-1">${product.description}</p>
-                        <div class="flex flex-between border-top">
-                            <div>
-                                <h3 class="text-primary mb-0">₹${product.price}</h3>
-                                <small class="text-muted">Stock: ${product.stock} units</small>
-                            </div>
-                            <button class="btn btn-danger" onclick="deleteProduct('${product.id}')">Delete</button>
+                storedProducts.forEach(product => {
+                    const card = document.createElement('div');
+                    card.className = 'card card-hover';
+                    
+                    const imageUrl = product.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
+                    
+                    card.innerHTML = `
+                        <div class="w-100 mb-1 product-img-wrapper">
+                            <img src="${imageUrl}" alt="${product.name}" class="w-100 product-img">
                         </div>
-                    </div>
-                `;
-                
-                productGrid.appendChild(card);
-            });
+                        <div>
+                            <span class="product-badge">${product.category}</span>
+                            <h3 class="mb-05">${product.name}</h3>
+                            <p class="text-sm mb-1">${product.description.substring(0, 80)}...</p>
+                            <div class="flex flex-between border-top">
+                                <div>
+                                    <h3 class="text-primary mb-0">₹${product.price}</h3>
+                                    <small class="text-muted">Stock: ${product.stock} units</small>
+                                </div>
+                                <button class="btn btn-danger" onclick="deleteProduct('${product._id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    productGrid.appendChild(card);
+                });
+            } catch (error) {
+                console.error(error);
+                alert('Error loading products');
+            }
         }
 
-        function deleteProduct(productId) {
-            let storedProducts = JSON.parse(localStorage.getItem('vendor_products')) || [];
-            storedProducts = storedProducts.filter(p => p.id.toString() !== productId.toString());
-            localStorage.setItem('vendor_products', JSON.stringify(storedProducts));
-            loadVendorProducts();
+        async function deleteProduct(productId) {
+            if (!confirm('Are you sure you want to delete this product?')) return;
+            try {
+                await apiRequest('/products/' + productId, 'DELETE');
+                loadVendorProducts();
+            } catch (error) {
+                alert('Error deleting product');
+            }
         }
     </script>
 </body>

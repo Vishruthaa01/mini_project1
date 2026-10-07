@@ -13,7 +13,7 @@
             <a href="vendor.html" class="btn btn-outline">Dashboard</a>
             <a href="add-product.html" class="btn btn-outline">Add Products</a>
             <a href="vendor-profile.html" class="btn btn-primary">Profile</a>
-            <a href="../authentication/login.html" class="btn btn-secondary">Logout</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
         </div>
     </nav>
 
@@ -22,15 +22,15 @@
             <h2 class="text-center" class="text-primary">Business Profile</h2>
             <p class="text-center">Manage your artisan details and store settings</p>
             
-            <form onsubmit="event.preventDefault(); alert('Profile Updated Successfully!');" class="mt-2">
+            <form onsubmit="updateProfile(event)" class="mt-2">
                 <div class="form-group">
                     <label class="form-label">Business / Artisan Name</label>
-                    <input type="text" class="form-control" value="Kala Crafts" required>
+                    <input type="text" id="businessName" class="form-control" value="Kala Crafts" required>
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Primary Craft Category</label>
-                    <select class="form-control">
+                    <select id="craftCategory" class="form-control">
                         <option>Textiles & Handloom</option>
                         <option selected>Pottery & Clay Art</option>
                         <option>Woodcraft</option>
@@ -40,22 +40,22 @@
 
                 <div class="form-group">
                     <label class="form-label">Contact Email</label>
-                    <input type="email" class="form-control" value="contact@kalacrafts.in" required>
+                    <input type="email" id="email" class="form-control" value="contact@kalacrafts.in" required>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Phone Number</label>
-                    <input type="tel" class="form-control" value="+91 98765 43210" required>
+                    <input type="tel" id="phone" class="form-control" value="+91 98765 43210" required>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Store Location / Village</label>
-                    <input type="text" class="form-control" value="Pochampally, Telangana" required>
+                    <input type="text" id="location" class="form-control" value="Pochampally, Telangana" required>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">About the Artisan / Business</label>
-                    <textarea class="form-control" rows="4">We are a family of traditional weavers specializing in Ikat silk sarees for over three generations.</textarea>
+                    <textarea id="about" class="form-control" rows="4">We are a family of traditional weavers specializing in Ikat silk sarees for over three generations.</textarea>
                 </div>
                 
                 <div class="flex" class="flex-between mt-2">
@@ -65,5 +65,45 @@
             </form>
         </div>
     </div>
+    <script src="../js/api.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadProfile);
+
+        async function loadProfile() {
+            try {
+                const user = await apiRequest('/auth/profile', 'GET');
+                document.getElementById('businessName').value = user.businessName || '';
+                document.getElementById('craftCategory').value = user.craftCategory || 'Textiles & Handloom';
+                document.getElementById('email').value = user.email || '';
+                document.getElementById('phone').value = user.phone || '';
+                document.getElementById('location').value = user.location || '';
+                document.getElementById('about').value = user.about || '';
+            } catch (error) {
+                alert('Error loading profile: ' + error.message);
+            }
+        }
+
+        async function updateProfile(event) {
+            event.preventDefault();
+            
+            const profileData = {
+                businessName: document.getElementById('businessName').value,
+                craftCategory: document.getElementById('craftCategory').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                location: document.getElementById('location').value,
+                about: document.getElementById('about').value
+            };
+
+            try {
+                const updatedUser = await apiRequest('/auth/profile', 'PUT', profileData);
+                const currentUser = JSON.parse(localStorage.getItem('user'));
+                localStorage.setItem('user', JSON.stringify({...currentUser, ...updatedUser}));
+                alert('Profile Updated Successfully!');
+            } catch (error) {
+                alert('Error updating profile: ' + error.message);
+            }
+        }
+    </script>
 </body>
 </html>

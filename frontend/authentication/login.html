@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - VendorConnect</title>
     <link rel="stylesheet" href="../css/style.css">
 </head>
+
 <body>
     <nav class="navbar">
         <a href="../index.html" class="brand">VendorConnect</a>
@@ -19,8 +21,8 @@
         <div class="card" class="mt-2">
             <h2 class="text-center" class="text-primary">Login to VendorConnect</h2>
             <p class="text-center">Select your account type to proceed</p>
-            
-            <form onsubmit="event.preventDefault(); window.location.href='../vendor/vendor.html';" class="mt-2">
+
+            <form onsubmit="handleLogin(event)" class="mt-2">
                 <div class="form-group">
                     <label class="form-label">Account Type</label>
                     <div class="radio-group">
@@ -37,21 +39,52 @@
 
                 <div class="form-group">
                     <label class="form-label" for="loginEmail">Email or Phone</label>
-                    <input type="text" class="form-control" id="loginEmail" placeholder="Enter your email or phone" required>
+                    <input type="text" class="form-control" id="loginEmail" placeholder="Enter your email or phone"
+                        required>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label" for="loginPassword">Password</label>
-                    <input type="password" class="form-control" id="loginPassword" placeholder="Enter password" required>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="Enter password"
+                        required>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary" class="w-100 btn-lg">Login</button>
             </form>
-            
+
             <div class="text-center mt-2">
                 <p class="text-sm">Don't have an account? <a href="signup.html" class="font-bold">Sign Up</a></p>
             </div>
         </div>
     </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const selectedRole = document.querySelector('input[name="loginRole"]:checked').value;
+            let identifier = document.getElementById('loginEmail').value.trim();
+            if (!identifier.includes('@')) identifier = identifier.replace(/\s+/g, '');
+
+            try {
+                const data = await apiRequest('/auth/login', 'POST', {
+                    identifier: identifier,
+                    password: document.getElementById('loginPassword').value
+                });
+
+                if (data.user.role !== selectedRole) {
+                    alert('This account is registered as a ' + data.user.role + '. Please choose that account type.');
+                    return;
+                }
+
+                saveSession(data);
+                goToDashboard(data.user);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+    </script>
 </body>
+
 </html>
