@@ -70,10 +70,75 @@ exports.deleteProduct = async (req, res) => {
 // @access  Public
 exports.getProducts = async (req, res) => {
     try {
-        const products = await Product.find({}).populate('vendor', 'name businessName').sort({ createdAt: -1 });
+        const { category, search } = req.query;
+        const query = {};
+
+        if (category) {
+            query.category = category;
+        }
+
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const products = await Product.find(query).populate('vendor', 'name businessName location').sort({ createdAt: -1 });
         res.json(products);
     } catch (error) {
         console.error('Error fetching all products:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Get single product by ID
+// @route   GET /api/products/:id
+// @access  Public
+exports.getProductById = async (req, res) => {
+    try {
+        const product = await Product.findById(req.params.id).populate('vendor', 'name businessName location about email phone');
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+        res.json(product);
+    } catch (error) {
+        console.error('Error fetching product by ID:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// @desc    Update a product
+// @route   PUT /api/products/:id
+// @access  Private/Vendor
+exports.updateProduct = async (req, res) => {
+    try {
+        const product = await Product.findById(req.params.id);
+
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        if (product.vendor.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to update this product' });
+        }
+
+        const { name, category, description, image, rawMaterialsCost, laborHours, price, stock, sku } = req.body;
+
+        if (name !== undefined) product.name = name;
+        if (category !== undefined) product.category = category;
+        if (description !== undefined) product.description = description;
+        if (image !== undefined) product.image = image;
+        if (rawMaterialsCost !== undefined) product.rawMaterialsCost = rawMaterialsCost;
+        if (laborHours !== undefined) product.laborHours = laborHours;
+        if (price !== undefined) product.price = price;
+        if (stock !== undefined) product.stock = stock;
+        if (sku !== undefined) product.sku = sku;
+
+        const updatedProduct = await product.save();
+        res.json(updatedProduct);
+    } catch (error) {
+        console.error('Error updating product:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };

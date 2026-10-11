@@ -64,13 +64,19 @@
                 const navActions = document.getElementById('nav-actions');
                 
                 if (user.role === 'vendor') {
+                    const profileLink = user.isProfileComplete === false 
+                        ? '<a href="vendor/vendor-profile.html?setup=true" class="btn btn-outline">Complete Setup</a>' 
+                        : '<a href="vendor/vendor.html" class="btn btn-outline">Dashboard</a>';
                     navActions.innerHTML = `
-                        <a href="vendor/vendor.html" class="btn btn-outline">Dashboard</a>
+                        ${profileLink}
                         <a href="authentication/login.html" class="btn btn-primary" onclick="localStorage.clear()">Logout</a>
                     `;
                 } else {
+                    const profileLink = user.isProfileComplete === false 
+                        ? '<a href="buyer/buyer-profile.html?setup=true" class="btn btn-outline">Complete Profile</a>' 
+                        : '<a href="buyer/buyer-profile.html" class="btn btn-outline">My Profile</a>';
                     navActions.innerHTML = `
-                        <a href="buyer/buyer-profile.html" class="btn btn-outline">My Profile</a>
+                        ${profileLink}
                         <a href="authentication/login.html" class="btn btn-primary" onclick="localStorage.clear()">Logout</a>
                     `;
                 }

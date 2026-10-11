@@ -21,15 +21,60 @@ async function apiRequest(path, method = 'GET', body = null) {
     } return data;
 }
 
+function resolvePath(target) {
+    const p = window.location.pathname.replace(/\\/g, '/');
+    const isInSubdir = p.includes('/authentication/') || p.includes('/vendor/') || p.includes('/buyer/');
+    return isInSubdir ? '../' + target : target;
+}
+
 function saveSession(data) {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
 }
 
-function goToDashboard(user) {
+function goToProfileSetup(user) {
+    if (!user) return;
     if (user.role === 'vendor') {
-        window.location.href = '../vendor/vendor.html';
+        window.location.href = resolvePath('vendor/vendor-profile.html?setup=true');
     } else {
-        window.location.href = '../index.html';
+        window.location.href = resolvePath('buyer/buyer-profile.html?setup=true');
     }
+}
+
+function goToDashboard(user) {
+    if (!user) return;
+    if (user.isProfileComplete === false) {
+        goToProfileSetup(user);
+        return;
+    }
+
+    if (user.role === 'vendor') {
+        window.location.href = resolvePath('vendor/vendor.html');
+    } else {
+        window.location.href = resolvePath('index.html');
+    }
+}
+
+function requireAuth(allowedRole = null, requireProfile = true) {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+
+    if (!token || !userStr) {
+        window.location.href = resolvePath('authentication/login.html');
+        return null;
+    }
+
+    const user = JSON.parse(userStr);
+
+    if (allowedRole && user.role !== allowedRole) {
+        goToDashboard(user);
+        return null;
+    }
+
+    if (requireProfile && user.isProfileComplete === false) {
+        goToProfileSetup(user);
+        return null;
+    }
+
+    return user;
 }

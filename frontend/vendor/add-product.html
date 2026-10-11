@@ -24,11 +24,8 @@
         </div>
 
         <form id="addProductForm" onsubmit="handlePublishProduct(event)">
-            
-          
             <div class="form-section">
                 <h3>1. Basic Information</h3>
-                
 
                 <div class="grid-2">
                     <div class="form-group">
@@ -53,25 +50,24 @@
                     <textarea class="form-control" id="desc" rows="4" required placeholder="Detail the craftsmanship, origin, and materials..."></textarea>
                 </div>
 
-                
                 <div class="bg-nav mb-2">
                     <label class="form-label text-main font-bold">AI Catalog Assistant (Optional)</label>
+                    <br>
                     <span class="help-text">Describe your product via text or voice, and we will write a professional title and description for you.</span>
                     <textarea class="form-control mb-1" id="raw-description-input" rows="2" placeholder="e.g. Red silk saree with gold border..."></textarea>
-                    
+
                     <div class="d-flex gap-1 flex-wrap align-center">
-                        <button type="button" id="mic-btn" class="btn btn-outline" onclick="toggleRecording()">🎤 Record Voice</button>
-                        <button type="button" onclick="enhanceTextWithAI()" id="enhance-text-btn" class="btn btn-secondary">✨ Generate Description</button>
+                        <button type="button" id="mic-btn" class="btn btn-outline" onclick="toggleRecording()">Record Voice</button>
+                        <button type="button" onclick="enhanceTextWithAI()" id="enhance-text-btn" class="btn btn-secondary">Generate Description</button>
                         <audio id="audio-playback" controls class="d-none h-40"></audio>
                     </div>
                 </div>
             </div>
 
-            <!-- Section 2: Media & AI Studio -->
             <div class="form-section">
                 <h3>2. Product Media</h3>
                 <span class="help-text">Upload a photo or capture one now. Our AI will automatically remove the background and enhance lighting for a studio-quality look.</span>
-                
+
                 <div class="grid-2">
                     <div>
                         <div class="video-wrapper">
@@ -82,7 +78,7 @@
                             <button type="button" onclick="startCamera()" class="btn btn-outline" id="btn-start-cam">Start Camera</button>
                             <button type="button" onclick="snapPhoto()" class="btn btn-danger d-none" id="btn-snap-cam">Snap Photo</button>
                             <div class="flex-1 text-right">
-                                <button><button type="button" class="btn btn-outline" style="padding: 0;"><label for="fallback-upload" class="cursor-pointer d-inline-block" style="padding: 0.75rem 1.5rem; width: 100%; margin: 0;">Upload File</label></button></button>
+                                <label for="fallback-upload" class="btn btn-outline cursor-pointer">Upload File</label>
                                 <input type="file" id="fallback-upload" accept="image/*" class="d-none" onchange="handleFileUpload(event)">
                             </div>
                         </div>
@@ -98,10 +94,9 @@
                 </div>
             </div>
 
-            <!-- Section 3: Pricing & Inventory -->
             <div class="form-section">
                 <h3>3. Pricing & Inventory</h3>
-                
+
                 <div class="bg-nav mb-2">
                     <label class="form-label text-main font-bold">AI Pricing Assistant (Optional)</label>
                     <span class="help-text">Not sure what to charge? Enter your costs and let AI suggest market rates.</span>
@@ -154,14 +149,15 @@
 
             <div class="text-right mb-3">
                 <a href="vendor.html" class="mr-15 text-muted font-bold">Cancel</a>
-                <button type="submit" class="btn btn-primary btn-lg">Publish Product Catalog</button>
+                <button type="submit" id="publish-btn" class="btn btn-primary btn-lg">Publish Product Catalog</button>
             </div>
         </form>
     </div>
 
     <script src="../js/api.js"></script>
     <script>
-        // --- SECTION 1: AI CATALOG ASSISTANT ---
+        requireAuth('vendor', true);
+
         let mediaRecorder = null;
         let audioChunks = [];
 
@@ -170,7 +166,7 @@
             if (mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.stop();
                 btn.classList.remove('recording-pulse');
-                btn.innerText = "🎤 Record Voice";
+                btn.innerText = "Record Voice";
             } else {
                 try {
                     const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -179,10 +175,15 @@
                     audioChunks = [];
                     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                     mediaRecorder.onstop = () => {
+                        audioStream.getTracks().forEach(track => track.stop());
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const player = document.getElementById('audio-playback');
+                        player.src = URL.createObjectURL(audioBlob);
+                        player.classList.remove('d-none');
                         enhanceTextWithAI(true);
                     };
                     btn.classList.add('recording-pulse');
-                    btn.innerText = "⏹ Stop Recording";
+                    btn.innerText = "Stop Recording";
                 } catch (e) {
                     alert('Microphone access denied.');
                 }
@@ -192,7 +193,7 @@
         function enhanceTextWithAI(fromVoice = false) {
             const rawText = document.getElementById('raw-description-input').value.trim();
             if (!fromVoice && !rawText) return alert("Please type a rough description or record a voice note!");
-            
+
             const btn = document.getElementById('enhance-text-btn');
             const origText = btn.innerText;
             btn.innerText = "Generating...";
@@ -201,7 +202,6 @@
             setTimeout(() => {
                 document.getElementById('title').value = "Premium Handcrafted " + (rawText.split(' ')[0] || "Artisan Product");
                 document.getElementById('desc').value = "A beautifully crafted piece featuring traditional artistry. " + rawText + " This unique item guarantees premium quality and exquisite attention to detail, perfect for adding elegance to any collection.";
-                
                 document.getElementById('category').value = "Textiles & Handloom";
 
                 btn.innerText = origText;
@@ -209,7 +209,6 @@
             }, 1500);
         }
 
-        // --- SECTION 2: AI IMAGE STUDIO ---
         let stream = null;
         const video = document.getElementById('camera-stream');
 
@@ -232,14 +231,14 @@
             canvas.height = video.videoHeight || 480;
             canvas.getContext('2d').drawImage(video, 0, 0);
             const rawBase64 = canvas.toDataURL('image/jpeg');
-            
-            if(stream) {
+
+            if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 video.classList.add('d-none');
                 document.getElementById('camera-placeholder').classList.remove('d-none');
                 document.getElementById('camera-placeholder').innerText = "Photo Captured";
             }
-            
+
             document.getElementById('btn-start-cam').classList.remove('d-none');
             document.getElementById('btn-start-cam').innerText = "Retake Photo";
             document.getElementById('btn-snap-cam').classList.add('d-none');
@@ -251,42 +250,56 @@
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = function (e) {
                     simulateAIEnhance(e.target.result);
                 };
                 reader.readAsDataURL(file);
             }
         }
 
+        function resizeImage(dataUrl, maxSize, callback) {
+            const img = new Image();
+            img.onload = () => {
+                const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                callback(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.src = dataUrl;
+        }
+
         function simulateAIEnhance(base64) {
             const status = document.getElementById('ai-status');
             const img = document.getElementById('enhanced-image-preview');
-            
+
             img.classList.add('d-none');
             status.innerText = "AI Analyzing lighting & removing background...";
-            
-            setTimeout(() => {
-                status.innerText = "Studio Ready ✓";
-                img.src = base64;
-                img.classList.remove('d-none');
-                img.classList.add('studio-filter');
-                img.classList.add('bg-white');
-                
-                document.getElementById('prodImageBase64').value = base64;
-            }, 1500);
+
+            resizeImage(base64, 800, (smallImage) => {
+                setTimeout(() => {
+                    status.innerText = "Studio Ready ✓";
+                    img.src = smallImage;
+                    img.classList.remove('d-none');
+                    img.classList.add('studio-filter');
+                    img.classList.add('bg-white');
+
+                    document.getElementById('prodImageBase64').value = smallImage;
+                }, 1500);
+            });
         }
 
-        // --- SECTION 3: SMART PRICING ---
         let priceData = {};
 
         function calculatePrice() {
             const material = parseFloat(document.getElementById('raw_material').value) || 0;
             const hours = parseFloat(document.getElementById('labor_hours').value) || 0;
-            
+
             if (material === 0 && hours === 0) return alert('Enter material cost or labor hours');
 
             const cost = material + (hours * 80);
-            
+
             priceData = {
                 fair: Math.round(cost * 1.25),
                 market: Math.round(cost * 1.6),
@@ -304,36 +317,42 @@
                 el.style.borderColor = 'var(--border)';
                 el.style.backgroundColor = 'var(--card-bg)';
             });
-            
+
             cardElement.style.borderColor = 'var(--primary)';
             cardElement.style.backgroundColor = 'var(--nav-bg)';
 
             document.getElementById('final_price').value = priceData[tier];
         }
 
-        // --- PUBLISH LOGIC ---
         async function handlePublishProduct(event) {
             event.preventDefault();
-            
-            let image = document.getElementById('prodImageBase64').value;
+
+            const publishBtn = document.getElementById('publish-btn');
+            const rawCost = document.getElementById('raw_material').value;
+            const hours = document.getElementById('labor_hours').value;
 
             const newProduct = {
-                sku: document.getElementById('sku').value,
-                name: document.getElementById('title').value,
+                sku: document.getElementById('sku').value.trim(),
+                name: document.getElementById('title').value.trim(),
                 category: document.getElementById('category').value,
-                description: document.getElementById('desc').value,
-                image: image,
-                price: document.getElementById('final_price').value,
-                stock: document.getElementById('stock').value,
-                rawMaterialsCost: document.getElementById('raw_material').value,
-                laborHours: document.getElementById('labor_hours').value
+                description: document.getElementById('desc').value.trim(),
+                image: document.getElementById('prodImageBase64').value,
+                price: Number(document.getElementById('final_price').value),
+                stock: Number(document.getElementById('stock').value),
+                rawMaterialsCost: rawCost ? Number(rawCost) : undefined,
+                laborHours: hours ? Number(hours) : undefined
             };
+
+            publishBtn.disabled = true;
+            publishBtn.innerText = 'Publishing...';
 
             try {
                 await apiRequest('/products', 'POST', newProduct);
                 window.location.href = 'vendor.html';
             } catch (error) {
                 alert('Error adding product: ' + error.message);
+                publishBtn.disabled = false;
+                publishBtn.innerText = 'Publish Product Catalog';
             }
         }
     </script>

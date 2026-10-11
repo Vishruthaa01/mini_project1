@@ -20,7 +20,11 @@ const productSchema = new mongoose.Schema(
             'Pottery & Clay Art',
             'Woodcraft',
             'Handmade Jewelry',
+            'Jewelry',
             'Bamboo & Cane',
+            'Metal & Brass Work',
+            'Handmade Paintings',
+            'Other'
         ]
     },
     description: {

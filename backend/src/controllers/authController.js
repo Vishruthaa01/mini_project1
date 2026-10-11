@@ -17,6 +17,11 @@ function publicUser(user) {
     email: user.email,
     phone: user.phone,
     role: user.role,
+    businessName: user.businessName || '',
+    craftCategory: user.craftCategory || '',
+    location: user.location || '',
+    about: user.about || '',
+    isProfileComplete: Boolean(user.isProfileComplete),
   };
 }
 
@@ -48,6 +53,7 @@ exports.signup = async (req, res) => {
       phone,
       password: hashedPassword,
       role: safeRole,
+      isProfileComplete: false,
     });
 
     res.status(201).json({ token: createToken(user), user: publicUser(user) });
@@ -101,26 +107,17 @@ exports.updateUserProfile = async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (user) {
-      user.name = req.body.name || user.name;
-      user.businessName = req.body.businessName || user.businessName;
-      user.craftCategory = req.body.craftCategory || user.craftCategory;
-      user.email = req.body.email || user.email;
-      user.phone = req.body.phone || user.phone;
-      user.location = req.body.location || user.location;
-      user.about = req.body.about || user.about;
+      user.name = req.body.name !== undefined ? req.body.name : user.name;
+      user.businessName = req.body.businessName !== undefined ? req.body.businessName : user.businessName;
+      user.craftCategory = req.body.craftCategory !== undefined ? req.body.craftCategory : user.craftCategory;
+      user.email = req.body.email !== undefined ? req.body.email : user.email;
+      user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;
+      user.location = req.body.location !== undefined ? req.body.location : user.location;
+      user.about = req.body.about !== undefined ? req.body.about : user.about;
+      user.isProfileComplete = true;
 
       const updatedUser = await user.save();
-      res.json({
-        id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        phone: updatedUser.phone,
-        role: updatedUser.role,
-        businessName: updatedUser.businessName,
-        craftCategory: updatedUser.craftCategory,
-        location: updatedUser.location,
-        about: updatedUser.about,
-      });
+      res.json(publicUser(updatedUser));
     } else {
       res.status(404).json({ message: 'User not found' });
     }

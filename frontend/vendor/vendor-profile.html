@@ -18,90 +18,147 @@
     </nav>
 
     <div class="container-sm">
-        <div class="card" class="mt-2">
-            <h2 class="text-center" class="text-primary">Business Profile</h2>
-            <p class="text-center">Manage your artisan details and store settings</p>
+        <div id="setupBanner" class="mt-2" style="display: none; background: var(--nav-bg); border-left: 5px solid var(--primary); padding: 1.25rem; border-radius: var(--border-radius); box-shadow: var(--shadow);">
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                <div>
+                    <h3 style="margin-bottom: 0.25rem; font-size: 1.1rem; color: var(--text-main);">Welcome to VendorConnect!</h3>
+                    <p style="margin: 0; color: var(--text-muted); font-size: 0.95rem;">
+                        As a new artisan, please set up your business and craft profile first. Once saved, your vendor dashboard and AI tools will be unlocked!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-2">
+            <h2 class="text-center text-primary" id="profileHeading">Business Profile</h2>
+            <p class="text-center" id="profileSubheading">Manage your artisan details and store settings</p>
             
             <form onsubmit="updateProfile(event)" class="mt-2">
                 <div class="form-group">
-                    <label class="form-label">Business / Artisan Name</label>
-                    <input type="text" id="businessName" class="form-control" value="Kala Crafts" required>
+                    <label class="form-label" for="businessName">Business / Artisan Name *</label>
+                    <input type="text" id="businessName" class="form-control" placeholder="e.g. Pochampally Weaves Studio" required>
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Primary Craft Category</label>
+                    <label class="form-label" for="craftCategory">Primary Craft Category *</label>
                     <select id="craftCategory" class="form-control">
-                        <option>Textiles & Handloom</option>
-                        <option selected>Pottery & Clay Art</option>
-                        <option>Woodcraft</option>
-                        <option>Jewelry</option>
+                        <option value="Textiles & Handloom">Textiles & Handloom</option>
+                        <option value="Pottery & Clay Art">Pottery & Clay Art</option>
+                        <option value="Woodcraft">Woodcraft</option>
+                        <option value="Jewelry">Jewelry</option>
+                        <option value="Metal & Brass Work">Metal & Brass Work</option>
+                        <option value="Handmade Paintings">Handmade Paintings</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Contact Email</label>
-                    <input type="email" id="email" class="form-control" value="contact@kalacrafts.in" required>
+                    <label class="form-label" for="email">Contact Email *</label>
+                    <input type="email" id="email" class="form-control" placeholder="artisan@example.com" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Phone Number</label>
-                    <input type="tel" id="phone" class="form-control" value="+91 98765 43210" required>
+                    <label class="form-label" for="phone">Phone Number *</label>
+                    <input type="tel" id="phone" class="form-control" placeholder="+91 98765 43210" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Store Location / Village</label>
-                    <input type="text" id="location" class="form-control" value="Pochampally, Telangana" required>
+                    <label class="form-label" for="location">Store Location / Village *</label>
+                    <input type="text" id="location" class="form-control" placeholder="e.g. Pochampally, Yadadri Bhuvanagiri, Telangana" required>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">About the Artisan / Business</label>
-                    <textarea id="about" class="form-control" rows="4">We are a family of traditional weavers specializing in Ikat silk sarees for over three generations.</textarea>
+                    <label class="form-label" for="about">About the Artisan / Business</label>
+                    <textarea id="about" class="form-control" rows="4" placeholder="Tell buyers about your craftsmanship, generational heritage, techniques, and unique handcrafted creations..."></textarea>
                 </div>
                 
-                <div class="flex" class="flex-between mt-2">
-                    <a href="vendor.html" class="btn btn-outline">Cancel</a>
-                    <button type="submit" class="btn btn-primary">Save Profile</button>
+                <div class="flex flex-between mt-2">
+                    <a href="vendor.html" id="cancelBtn" class="btn btn-outline">Cancel</a>
+                    <button type="submit" id="saveProfileBtn" class="btn btn-primary">Save Profile</button>
                 </div>
             </form>
         </div>
     </div>
     <script src="../js/api.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', loadProfile);
+        let isSetupMode = false;
 
-        async function loadProfile() {
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+            if (!token || !userStr) {
+                window.location.href = '../authentication/login.html';
+                return;
+            }
+
+            const currentUser = JSON.parse(userStr);
+            const urlParams = new URLSearchParams(window.location.search);
+            isSetupMode = urlParams.get('setup') === 'true' || currentUser.isProfileComplete === false;
+
+            if (isSetupMode) {
+                document.getElementById('setupBanner').style.display = 'block';
+                document.getElementById('profileHeading').innerText = 'Set Up Your Artisan Profile';
+                document.getElementById('profileSubheading').innerText = 'Please complete your store details to activate your account';
+                document.getElementById('saveProfileBtn').innerText = 'Complete Setup & Open Dashboard';
+                document.getElementById('cancelBtn').style.display = 'none';
+            }
+
+            loadProfile(currentUser);
+        });
+
+        async function loadProfile(currentUser) {
             try {
                 const user = await apiRequest('/auth/profile', 'GET');
-                document.getElementById('businessName').value = user.businessName || '';
+                document.getElementById('businessName').value = user.businessName || user.name || (currentUser && currentUser.name) || '';
                 document.getElementById('craftCategory').value = user.craftCategory || 'Textiles & Handloom';
-                document.getElementById('email').value = user.email || '';
-                document.getElementById('phone').value = user.phone || '';
+                document.getElementById('email').value = user.email || (currentUser && currentUser.email) || '';
+                document.getElementById('phone').value = user.phone || (currentUser && currentUser.phone) || '';
                 document.getElementById('location').value = user.location || '';
                 document.getElementById('about').value = user.about || '';
             } catch (error) {
-                alert('Error loading profile: ' + error.message);
+                console.error('Error loading profile:', error);
+                if (currentUser) {
+                    document.getElementById('businessName').value = currentUser.businessName || currentUser.name || '';
+                    document.getElementById('email').value = currentUser.email || '';
+                    document.getElementById('phone').value = currentUser.phone || '';
+                }
             }
         }
 
         async function updateProfile(event) {
             event.preventDefault();
             
+            const saveBtn = document.getElementById('saveProfileBtn');
+            const originalText = saveBtn.innerText;
+            saveBtn.disabled = true;
+            saveBtn.innerText = 'Saving...';
+
             const profileData = {
-                businessName: document.getElementById('businessName').value,
+                businessName: document.getElementById('businessName').value.trim(),
                 craftCategory: document.getElementById('craftCategory').value,
-                email: document.getElementById('email').value,
-                phone: document.getElementById('phone').value,
-                location: document.getElementById('location').value,
-                about: document.getElementById('about').value
+                email: document.getElementById('email').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                location: document.getElementById('location').value.trim(),
+                about: document.getElementById('about').value.trim()
             };
 
             try {
                 const updatedUser = await apiRequest('/auth/profile', 'PUT', profileData);
-                const currentUser = JSON.parse(localStorage.getItem('user'));
-                localStorage.setItem('user', JSON.stringify({...currentUser, ...updatedUser}));
-                alert('Profile Updated Successfully!');
+                const currentUser = JSON.parse(localStorage.getItem('user')) || {};
+                const mergedUser = { ...currentUser, ...updatedUser, isProfileComplete: true };
+                localStorage.setItem('user', JSON.stringify(mergedUser));
+
+                if (isSetupMode) {
+                    alert('🎉 Profile setup completed successfully! Welcome to VendorConnect.');
+                    window.location.href = 'vendor.html';
+                } else {
+                    alert('Profile updated successfully!');
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = originalText;
+                }
             } catch (error) {
                 alert('Error updating profile: ' + error.message);
+                saveBtn.disabled = false;
+                saveBtn.innerText = originalText;
             }
         }
     </script>

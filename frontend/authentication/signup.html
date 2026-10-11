@@ -36,7 +36,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="fullName">Full Name / Business Name</label>
+                    <label class="form-label" for="fullName">Business Name</label>
                     <input type="text" class="form-control" id="fullName" placeholder="Enter your name" required>
                 </div>
                 
@@ -80,7 +80,7 @@
             try {
                 const data = await apiRequest('/auth/signup', 'POST', body);
                 saveSession(data);
-                goToDashboard(data.user);
+                goToProfileSetup(data.user);
             } catch (error) {
                 alert(error.message);
             }

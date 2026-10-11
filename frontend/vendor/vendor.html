@@ -33,13 +33,16 @@
         </div>
 
         <div id="productGrid" class="grid" class="d-none">
-            <!-- Dynamically populated via JS -->
         </div>
     </div>
 
     <script src="../js/api.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', loadVendorProducts);
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = requireAuth('vendor', true);
+            if (!user) return;
+            loadVendorProducts();
+        });
 
         async function loadVendorProducts() {
             const emptyState = document.getElementById('emptyState');
