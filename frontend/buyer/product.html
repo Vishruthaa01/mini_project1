@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Buyer navbar -->
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="marketplace.html" class="btn btn-outline">Marketplace</a>
+            <a href="cart.html" class="btn btn-outline">
+                Cart <span class="cart-badge" id="cartCountBadge">0</span>
+            </a>
+            <a href="orders.html" class="btn btn-outline">My Orders</a>
+            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="buyer-profile.html" class="btn btn-outline">My Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="marketplace.html" class="btn btn-outline mb-2" style="display:inline-block">← Back to Marketplace</a>
+        <div id="stateMsg" class="state-msg">Loading product…</div>
+        <div id="productDetail" class="d-none">
+            <!-- Filled by JS -->
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const currentUser = requireAuth('buyer', true);
+        if (!currentUser) throw new Error('redirect');
+
+        document.getElementById('cartCountBadge').textContent = getCartCount() || '';
+        document.getElementById('logoutBtn').addEventListener('click', () => localStorage.clear());
+
+        // Read product ID from URL
+        const productId = new URLSearchParams(window.location.search).get('id');
+        if (!productId) window.location.href = 'marketplace.html';
+
+        // ── Helpers ──────────────────────────────────────────────
+        function starsHtml(rating) {
+            // Returns filled/empty star string for a 1-5 rating
+            const full  = Math.round(rating || 0);
+            return '★'.repeat(full) + '☆'.repeat(5 - full);
+        }
+
+        function statusClass(status) {
+            return 'badge badge-' + (status || '').toLowerCase();
+        }
+
+        // ── Load Product ─────────────────────────────────────────
+        async function loadProduct() {
+            const msgEl   = document.getElementById('stateMsg');
+            const detailEl = document.getElementById('productDetail');
+
+            try {
+                const p = await apiRequest('/products/' + productId, 'GET');
+                document.title = p.name + ' - VendorConnect';
+                msgEl.classList.add('d-none');
+                detailEl.classList.remove('d-none');
+                renderProduct(p);
+                loadReviews();
+            } catch (err) {
+                msgEl.textContent = 'Error: ' + err.message;
+            }
+        }
+
+        function renderProduct(p) {
+            const el = document.getElementById('productDetail');
+            el.innerHTML = ''; // safe — we build with DOM below
+
+            // ── Layout: image left, info right ──
+            const grid = document.createElement('div');
+            grid.className = 'grid-2 gap-2 mb-2';
+
+            // Left: image
+            const imgCol = document.createElement('div');
+            const img = document.createElement('img');
+            img.src = p.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80';
+            img.alt = p.name;
+            img.className = 'product-detail-img';
+            imgCol.appendChild(img);
+            grid.appendChild(imgCol);
+
+            // Right: info
+            const infoCol = document.createElement('div');
+
+            // Badge + name
+            const badge = document.createElement('span');
+            badge.className = 'product-badge mb-1';
+            badge.textContent = p.category || '';
+            infoCol.appendChild(badge);
+
+            const h2 = document.createElement('h2');
+            h2.textContent = p.name;
+            infoCol.appendChild(h2);
+
+            // Price
+            const price = document.createElement('h2');
+            price.className = 'text-primary mb-1';
+            price.textContent = '₹' + p.price;
+            infoCol.appendChild(price);
+
+            // Stock
+            const stockP = document.createElement('p');
+            stockP.className = 'text-muted mb-1';
+            stockP.textContent = p.stock > 0 ? 'In Stock: ' + p.stock + ' available' : '⚠ Out of stock';
+            infoCol.appendChild(stockP);
+
+            // Description
+            const descTitle = document.createElement('h4');
+            descTitle.textContent = 'About this product';
+            infoCol.appendChild(descTitle);
+            const desc = document.createElement('p');
+            desc.textContent = p.description || '';
+            infoCol.appendChild(desc);
+
+            // Vendor info box
+            if (p.vendor) {
+                const vbox = document.createElement('div');
+                vbox.className = 'vendor-info-box mb-2';
+                const vTitle = document.createElement('h4');
+                vTitle.textContent = 'Sold by';
+                vbox.appendChild(vTitle);
+
+                const bName = document.createElement('p');
+                bName.className = 'mb-05';
+                bName.textContent = p.vendor.businessName || 'Artisan';
+                vbox.appendChild(bName);
+
+                if (p.vendor.location) {
+                    const loc = document.createElement('p');
+                    loc.className = 'text-sm text-muted mb-05';
+                    loc.textContent = '📍 ' + p.vendor.location;
+                    vbox.appendChild(loc);
+                }
+                if (p.vendor.craftCategory) {
+                    const craft = document.createElement('p');
+                    craft.className = 'text-sm text-muted mb-05';
+                    craft.textContent = 'Craft: ' + p.vendor.craftCategory;
+                    vbox.appendChild(craft);
+                }
+                if (p.vendor.about) {
+                    const about = document.createElement('p');
+                    about.className = 'text-sm mb-0';
+                    about.textContent = p.vendor.about;
+                    vbox.appendChild(about);
+                }
+                infoCol.appendChild(vbox);
+            }
+
+            // Quantity selector + Add to Cart / Buy Now
+            if (p.stock > 0) {
+                const qtyRow = document.createElement('div');
+                qtyRow.className = 'flex align-center mb-1';
+
+                const qtyLabel = document.createElement('span');
+                qtyLabel.className = 'form-label mr-1';
+                qtyLabel.textContent = 'Qty:';
+
+                const minus = document.createElement('button');
+                minus.className = 'btn btn-outline';
+                minus.style.padding = '0.4rem 0.8rem';
+                minus.textContent = '−';
+
+                const qtyInput = document.createElement('input');
+                qtyInput.type = 'number';
+                qtyInput.id = 'qtyInput';
+                qtyInput.value = 1;
+                qtyInput.min = 1;
+                qtyInput.max = Math.min(p.stock, 20);
+                qtyInput.className = 'form-control';
+                qtyInput.style.width = '70px';
+                qtyInput.style.textAlign = 'center';
+
+                const plus = document.createElement('button');
+                plus.className = 'btn btn-outline';
+                plus.style.padding = '0.4rem 0.8rem';
+                plus.textContent = '+';
+
+                // clamp quantity helper
+                function clampQty() {
+                    let v = parseInt(qtyInput.value) || 1;
+                    v = Math.max(1, Math.min(v, Math.min(p.stock, 20)));
+                    qtyInput.value = v;
+                }
+                minus.addEventListener('click', () => { qtyInput.value = parseInt(qtyInput.value) - 1; clampQty(); });
+                plus.addEventListener('click',  () => { qtyInput.value = parseInt(qtyInput.value) + 1; clampQty(); });
+                qtyInput.addEventListener('change', clampQty);
+
+                qtyRow.appendChild(qtyLabel);
+                qtyRow.appendChild(minus);
+                qtyRow.appendChild(qtyInput);
+                qtyRow.appendChild(plus);
+                infoCol.appendChild(qtyRow);
+
+                const btnRow = document.createElement('div');
+                btnRow.className = 'flex gap-1';
+
+                const addBtn = document.createElement('button');
+                addBtn.className = 'btn btn-outline flex-1';
+                addBtn.textContent = 'Add to Cart';
+                addBtn.addEventListener('click', () => addToCart(p, parseInt(qtyInput.value)));
+
+                const buyBtn = document.createElement('button');
+                buyBtn.className = 'btn btn-primary flex-1';
+                buyBtn.textContent = 'Buy Now';
+                buyBtn.addEventListener('click', () => {
+                    addToCart(p, parseInt(qtyInput.value));
+                    window.location.href = 'cart.html';
+                });
+
+                btnRow.appendChild(addBtn);
+                btnRow.appendChild(buyBtn);
+                infoCol.appendChild(btnRow);
+            } else {
+                const soldOut = document.createElement('p');
+                soldOut.style.color = '#ff4757';
+                soldOut.style.fontWeight = 'bold';
+                soldOut.textContent = 'This product is currently out of stock.';
+                infoCol.appendChild(soldOut);
+            }
+
+            grid.appendChild(infoCol);
+            el.appendChild(grid);
+
+            // ── Inquiry form ──────────────────────────────────────
+            const inqSection = document.createElement('div');
+            inqSection.className = 'card mt-2';
+
+            const inqTitle = document.createElement('h3');
+            inqTitle.textContent = 'Ask the Vendor';
+            inqSection.appendChild(inqTitle);
+
+            const inqMsg = document.createElement('p');
+            inqMsg.id = 'inqMsg';
+            inqMsg.className = 'd-none';
+            inqSection.appendChild(inqMsg);
+
+            const subjectGroup = document.createElement('div');
+            subjectGroup.className = 'form-group';
+            const subjectLabel = document.createElement('label');
+            subjectLabel.className = 'form-label';
+            subjectLabel.textContent = 'Subject';
+            const subjectInput = document.createElement('input');
+            subjectInput.type = 'text';
+            subjectInput.id = 'inqSubject';
+            subjectInput.className = 'form-control';
+            subjectInput.placeholder = 'e.g. Customization, bulk order…';
+            subjectInput.maxLength = 100;
+            subjectGroup.appendChild(subjectLabel);
+            subjectGroup.appendChild(subjectInput);
+            inqSection.appendChild(subjectGroup);
+
+            const msgGroup = document.createElement('div');
+            msgGroup.className = 'form-group';
+            const msgLabel = document.createElement('label');
+            msgLabel.className = 'form-label';
+            msgLabel.textContent = 'Message';
+            const msgTextarea = document.createElement('textarea');
+            msgTextarea.id = 'inqMessage';
+            msgTextarea.className = 'form-control';
+            msgTextarea.rows = 4;
+            msgTextarea.placeholder = 'Ask about customization, materials, delivery…';
+            msgTextarea.maxLength = 1000;
+            msgGroup.appendChild(msgLabel);
+            msgGroup.appendChild(msgTextarea);
+            inqSection.appendChild(msgGroup);
+
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'btn btn-primary';
+            sendBtn.id = 'sendInqBtn';
+            sendBtn.textContent = 'Send Inquiry';
+            // Store productId and vendorId safely in data attributes
+            sendBtn.dataset.productId = p._id;
+            sendBtn.dataset.vendorId  = p.vendor ? p.vendor._id || '' : '';
+            sendBtn.addEventListener('click', sendInquiry);
+            inqSection.appendChild(sendBtn);
+
+            el.appendChild(inqSection);
+
+            // ── Reviews section (placeholder, filled by loadReviews) ──
+            const revSection = document.createElement('div');
+            revSection.id = 'reviewsSection';
+            revSection.className = 'card mt-2';
+            el.appendChild(revSection);
+        }
+
+        // ── Add to Cart ───────────────────────────────────────────
+        function addToCart(p, qty) {
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('cart') || '[]'); } catch (e) {}
+
+            // Merge if product already in cart
+            const existing = cart.find(i => i.productId === p._id);
+            if (existing) {
+                existing.quantity = Math.min(existing.quantity + qty, Math.min(p.stock, 20));
+            } else {
+                cart.push({
+                    productId:  p._id,
+                    name:       p.name,
+                    price:      p.price,
+                    image:      p.image || '',
+                    quantity:   qty,
+                    vendorName: (p.vendor && p.vendor.businessName) || 'Artisan'
+                });
+            }
+            localStorage.setItem('cart', JSON.stringify(cart));
+            document.getElementById('cartCountBadge').textContent = getCartCount() || '';
+            alert('Added to cart! ✓');
+        }
+
+        // ── Send Inquiry ──────────────────────────────────────────
+        async function sendInquiry() {
+            const btn     = document.getElementById('sendInqBtn');
+            const subject = document.getElementById('inqSubject').value.trim();
+            const message = document.getElementById('inqMessage').value.trim();
+            const msgEl   = document.getElementById('inqMsg');
+
+            if (!subject || !message) {
+                msgEl.className = 'text-muted';
+                msgEl.textContent = 'Please enter a subject and message.';
+                msgEl.classList.remove('d-none');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Sending…';
+
+            try {
+                await apiRequest('/inquiries', 'POST', {
+                    product: btn.dataset.productId,
+                    vendor:  btn.dataset.vendorId,
+                    subject,
+                    message
+                });
+                msgEl.style.color = 'green';
+                msgEl.textContent = 'Inquiry sent! The vendor will reply soon.';
+                msgEl.classList.remove('d-none');
+                document.getElementById('inqSubject').value = '';
+                document.getElementById('inqMessage').value = '';
+            } catch (err) {
+                msgEl.style.color = '#ff4757';
+                msgEl.textContent = 'Error: ' + err.message;
+                msgEl.classList.remove('d-none');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Inquiry';
+            }
+        }
+
+        // ── Load Reviews ──────────────────────────────────────────
+        async function loadReviews() {
+            const sec = document.getElementById('reviewsSection');
+            if (!sec) return;
+            sec.innerHTML = '';
+
+            const title = document.createElement('h3');
+            title.textContent = 'Customer Reviews';
+            sec.appendChild(title);
+
+            try {
+                const data = await apiRequest('/reviews/product/' + productId, 'GET');
+                const { reviews, averageRating, count } = data;
+
+                // Average + count summary
+                const summary = document.createElement('div');
+                summary.className = 'flex align-center gap-1 mb-2';
+
+                const starsEl = document.createElement('span');
+                starsEl.className = 'stars';
+                starsEl.textContent = '★'.repeat(Math.round(averageRating || 0)) + '☆'.repeat(5 - Math.round(averageRating || 0));
+                summary.appendChild(starsEl);
+
+                const avgText = document.createElement('span');
+                avgText.className = 'font-bold';
+                avgText.textContent = (averageRating || 0).toFixed(1);
+                summary.appendChild(avgText);
+
+                const countText = document.createElement('span');
+                countText.className = 'text-muted text-sm';
+                countText.textContent = '(' + count + ' review' + (count !== 1 ? 's' : '') + ')';
+                summary.appendChild(countText);
+                sec.appendChild(summary);
+
+                if (count === 0) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-muted';
+                    empty.textContent = 'No reviews yet. Be the first!';
+                    sec.appendChild(empty);
+                }
+
+                // Individual review items
+                (reviews || []).forEach(r => {
+                    const item = document.createElement('div');
+                    item.className = 'review-item';
+
+                    const ratingRow = document.createElement('div');
+                    ratingRow.className = 'flex align-center gap-1 mb-05';
+
+                    const rStars = document.createElement('span');
+                    rStars.className = 'stars-sm';
+                    rStars.textContent = '★'.repeat(r.rating || 0) + '☆'.repeat(5 - (r.rating || 0));
+                    ratingRow.appendChild(rStars);
+
+                    const rName = document.createElement('span');
+                    rName.className = 'text-sm font-bold';
+                    rName.textContent = (r.buyer && r.buyer.name) || 'Buyer';
+                    ratingRow.appendChild(rName);
+
+                    const rDate = document.createElement('span');
+                    rDate.className = 'text-xs text-muted';
+                    rDate.textContent = r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-IN') : '';
+                    ratingRow.appendChild(rDate);
+
+                    item.appendChild(ratingRow);
+
+                    if (r.comment) {
+                        const rComment = document.createElement('p');
+                        rComment.className = 'mb-0 text-sm';
+                        rComment.textContent = r.comment;
+                        item.appendChild(rComment);
+                    }
+
+                    sec.appendChild(item);
+                });
+
+                // Review submission form (buyer can leave a review after a delivered order)
+                renderReviewForm(sec);
+
+            } catch (err) {
+                const errP = document.createElement('p');
+                errP.className = 'text-muted';
+                errP.textContent = 'Could not load reviews.';
+                sec.appendChild(errP);
+            }
+        }
+
+        // ── Review Form ───────────────────────────────────────────
+        function renderReviewForm(sec) {
+            const formDiv = document.createElement('div');
+            formDiv.className = 'mt-2';
+            formDiv.style.borderTop = '1px solid var(--border)';
+            formDiv.style.paddingTop = '1rem';
+
+            const ft = document.createElement('h4');
+            ft.textContent = 'Leave a Review';
+            formDiv.appendChild(ft);
+
+            const fMsg = document.createElement('p');
+            fMsg.id = 'reviewMsg';
+            fMsg.className = 'd-none';
+            formDiv.appendChild(fMsg);
+
+            // Star rating selector (1-5)
+            const ratingGroup = document.createElement('div');
+            ratingGroup.className = 'form-group';
+            const rLabel = document.createElement('label');
+            rLabel.className = 'form-label';
+            rLabel.textContent = 'Rating';
+            const rSelect = document.createElement('select');
+            rSelect.id = 'ratingSelect';
+            rSelect.className = 'form-control';
+            [5,4,3,2,1].forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = '★'.repeat(n) + ' ' + n + ' star' + (n > 1 ? 's' : '');
+                rSelect.appendChild(opt);
+            });
+            ratingGroup.appendChild(rLabel);
+            ratingGroup.appendChild(rSelect);
+            formDiv.appendChild(ratingGroup);
+
+            const cGroup = document.createElement('div');
+            cGroup.className = 'form-group';
+            const cLabel = document.createElement('label');
+            cLabel.className = 'form-label';
+            cLabel.textContent = 'Comment (optional)';
+            const cArea = document.createElement('textarea');
+            cArea.id = 'reviewComment';
+            cArea.className = 'form-control';
+            cArea.rows = 3;
+            cArea.maxLength = 500;
+            cArea.placeholder = 'Share your experience with this product…';
+            cGroup.appendChild(cLabel);
+            cGroup.appendChild(cArea);
+            formDiv.appendChild(cGroup);
+
+            const submitBtn = document.createElement('button');
+            submitBtn.className = 'btn btn-primary';
+            submitBtn.id = 'submitReviewBtn';
+            submitBtn.textContent = 'Submit Review';
+            submitBtn.addEventListener('click', submitReview);
+            formDiv.appendChild(submitBtn);
+
+            sec.appendChild(formDiv);
+        }
+
+        async function submitReview() {
+            const btn     = document.getElementById('submitReviewBtn');
+            const rating  = parseInt(document.getElementById('ratingSelect').value);
+            const comment = document.getElementById('reviewComment').value.trim();
+            const msgEl   = document.getElementById('reviewMsg');
+
+            btn.disabled = true;
+            btn.textContent = 'Submitting…';
+
+            try {
+                await apiRequest('/reviews', 'POST', { product: productId, rating, comment });
+                msgEl.style.color = 'green';
+                msgEl.textContent = 'Review submitted! Thank you.';
+                msgEl.classList.remove('d-none');
+                loadReviews(); // refresh the reviews list
+            } catch (err) {
+                msgEl.style.color = '#ff4757';
+                // 409 = duplicate (already reviewed), 403 = no delivered order
+                msgEl.textContent = 'Error: ' + err.message;
+                msgEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.textContent = 'Submit Review';
+            }
+        }
+
+        // Start loading
+        loadProduct();
+    </script>
+</body>
+</html>

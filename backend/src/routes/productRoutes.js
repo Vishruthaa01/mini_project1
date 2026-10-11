@@ -6,13 +6,17 @@ const {
     deleteProduct, 
     getProducts, 
     getProductById, 
-    updateProduct 
+    updateProduct,
+    getCategories
 } = require('../controllers/productController');
 const { protect, vendorOnly } = require('../middleware/authMiddleware');
 
 router.route('/')
     .get(getProducts)
     .post(protect, vendorOnly, createProduct);
+
+router.route('/categories')
+    .get(getCategories);
 
 router.route('/vendor')
     .get(protect, vendorOnly, getVendorProducts);

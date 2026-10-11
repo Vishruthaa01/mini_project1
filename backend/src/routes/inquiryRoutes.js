@@ -6,13 +6,13 @@ const {
     getVendorInquiries, 
     replyInquiry 
 } = require('../controllers/inquiryController');
-const { protect, vendorOnly } = require('../middleware/authMiddleware');
+const { protect, vendorOnly, buyerOnly } = require('../middleware/authMiddleware');
 
 router.route('/')
-    .post(protect, createInquiry);
+    .post(protect, buyerOnly, createInquiry);
 
 router.route('/buyer')
-    .get(protect, getBuyerInquiries);
+    .get(protect, buyerOnly, getBuyerInquiries);
 
 router.route('/vendor')
     .get(protect, vendorOnly, getVendorInquiries);

@@ -148,3 +148,212 @@ p { color: var(--text-muted); margin-bottom: 1rem; }
 .product-img-wrapper { height: 200px; border-radius: 8px; overflow: hidden; }
 .product-img { height: 100%; object-fit: cover; }
 .product-badge { display: inline-block; padding: 0.2rem 0.6rem; background: var(--nav-bg); color: var(--primary); border-radius: 20px; font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+
+/* ===================================================
+   PHASE 2 — Buyer & Vendor pages (added 2026-10)
+   =================================================== */
+
+/* Cart badge on navbar link */
+.cart-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: bold;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+/* Star rating display */
+.stars { color: #f59e0b; font-size: 1.1rem; letter-spacing: 2px; }
+.stars-sm { color: #f59e0b; font-size: 0.9rem; }
+
+/* Order / review status badge colours */
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.badge-placed     { background: #e0f2fe; color: #0369a1; }
+.badge-confirmed  { background: #ede9fe; color: #6d28d9; }
+.badge-processing { background: #fef3c7; color: #92400e; }
+.badge-shipped    { background: #d1fae5; color: #065f46; }
+.badge-delivered  { background: #bbf7d0; color: #14532d; }
+.badge-cancelled  { background: #fee2e2; color: #991b1b; }
+
+/* Marketplace filter bar */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+    background: var(--card-bg);
+    padding: 1.25rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+}
+.filter-bar .form-control { margin-bottom: 0; }
+.filter-group { display: flex; flex-direction: column; gap: 0.3rem; min-width: 130px; flex: 1; }
+.filter-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+
+/* Product card "Sold out" overlay */
+.sold-out-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+.sold-out-overlay span {
+    background: #ff4757;
+    color: #fff;
+    padding: 0.35rem 1rem;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+.product-img-wrapper { position: relative; } /* needed for absolute overlay */
+
+/* Product detail page */
+.product-detail-img {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+}
+.vendor-info-box {
+    background: var(--nav-bg);
+    border-radius: var(--border-radius);
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+}
+
+/* Review list */
+.review-item {
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 0;
+}
+.review-item:last-child { border-bottom: none; }
+
+/* Inquiry thread bubble */
+.msg-bubble {
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 0.5rem;
+    max-width: 85%;
+}
+.msg-buyer  { background: var(--nav-bg); border: 1px solid var(--border); align-self: flex-start; }
+.msg-vendor { background: #e8f5e9; border: 1px solid #c8e6c9; align-self: flex-end; }
+
+/* Order timeline */
+.timeline { list-style: none; padding: 0; margin: 1rem 0; position: relative; }
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+}
+.timeline li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    padding-left: 2rem;
+    position: relative;
+}
+.timeline li::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--border);
+}
+.timeline li.done::before { background: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+.timeline li.current::before { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
+
+/* Pagination */
+.pagination { display: flex; gap: 0.5rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
+.pagination button {
+    padding: 0.5rem 0.9rem;
+    border: 2px solid var(--border);
+    border-radius: var(--border-radius);
+    background: var(--card-bg);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: 0.2s;
+    color: var(--text-main);
+}
+.pagination button:hover { border-color: var(--primary); color: var(--primary); }
+.pagination button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.pagination button:disabled { opacity: 0.4; cursor: default; }
+
+/* Cart item row */
+.cart-item {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.cart-item:last-child { border-bottom: none; }
+.cart-item img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.cart-qty { display: flex; align-items: center; gap: 0.5rem; }
+.cart-qty button {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card-bg);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--text-main);
+}
+.cart-qty button:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Loading / empty state */
+.state-msg {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+}
+
+/* Responsive – stack grids on small screens */
+@media (max-width: 768px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+    .filter-bar { flex-direction: column; }
+    .navbar { flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 1rem; }
+    .navbar-nav { flex-wrap: wrap; gap: 0.4rem; }
+    .btn { padding: 0.55rem 1rem; font-size: 0.9rem; }
+}
+@media (max-width: 480px) {
+    .grid-3 { grid-template-columns: 1fr; }
+    .cart-item { flex-direction: column; }
+}

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Inquiries - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Buyer navbar -->
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="marketplace.html" class="btn btn-outline">Marketplace</a>
+            <a href="cart.html" class="btn btn-outline">
+                Cart <span class="cart-badge" id="cartCountBadge">0</span>
+            </a>
+            <a href="orders.html" class="btn btn-outline">My Orders</a>
+            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="buyer-profile.html" class="btn btn-outline">My Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="mb-2">My Inquiries</h2>
+        <div id="stateMsg" class="state-msg">Loading inquiries…</div>
+        <div id="inquiriesList" class="flex-column gap-2 d-none"></div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const currentUser = requireAuth('buyer', true);
+        if (!currentUser) throw new Error('redirect');
+
+        document.getElementById('cartCountBadge').textContent = getCartCount() || '';
+        document.getElementById('logoutBtn').addEventListener('click', () => localStorage.clear());
+
+        async function loadInquiries() {
+            const msgEl  = document.getElementById('stateMsg');
+            const listEl = document.getElementById('inquiriesList');
+
+            try {
+                const inquiries = await apiRequest('/inquiries/buyer', 'GET');
+
+                if (!inquiries || inquiries.length === 0) {
+                    msgEl.textContent = 'You have no inquiries yet. Ask a vendor from any product page!';
+                    return;
+                }
+
+                msgEl.classList.add('d-none');
+                listEl.classList.remove('d-none');
+
+                inquiries.forEach(inq => listEl.appendChild(buildInquiryCard(inq)));
+            } catch (err) {
+                msgEl.textContent = 'Error loading inquiries: ' + err.message;
+            }
+        }
+
+        function buildInquiryCard(inq) {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            // Header: subject + product name
+            const header = document.createElement('div');
+            header.className = 'flex flex-between align-center mb-1';
+
+            const subj = document.createElement('h4');
+            subj.className = 'mb-0';
+            subj.textContent = inq.subject || 'Inquiry';
+            header.appendChild(subj);
+
+            const date = document.createElement('span');
+            date.className = 'text-xs text-muted';
+            date.textContent = inq.createdAt ? new Date(inq.createdAt).toLocaleDateString('en-IN') : '';
+            header.appendChild(date);
+            card.appendChild(header);
+
+            // Product info
+            if (inq.product) {
+                const prodLink = document.createElement('a');
+                prodLink.href = 'product.html?id=' + (inq.product._id || inq.product);
+                prodLink.className = 'text-sm text-primary mb-1 d-block';
+                prodLink.textContent = '🛍 ' + (inq.product.name || 'View Product');
+                card.appendChild(prodLink);
+            }
+
+            // Vendor name
+            if (inq.vendor && inq.vendor.businessName) {
+                const vendorEl = document.createElement('p');
+                vendorEl.className = 'text-sm text-muted mb-1';
+                vendorEl.textContent = 'Vendor: ' + inq.vendor.businessName;
+                card.appendChild(vendorEl);
+            }
+
+            // Message thread — buyer message then vendor reply
+            const thread = document.createElement('div');
+            thread.className = 'flex-column';
+            thread.style.display = 'flex';
+
+            // Buyer message bubble
+            const buyerBubble = document.createElement('div');
+            buyerBubble.className = 'msg-bubble msg-buyer';
+
+            const buyerLabel = document.createElement('p');
+            buyerLabel.className = 'text-xs text-muted mb-05';
+            buyerLabel.textContent = 'You';
+            buyerBubble.appendChild(buyerLabel);
+
+            const buyerMsg = document.createElement('p');
+            buyerMsg.className = 'mb-0 text-sm';
+            buyerMsg.textContent = inq.message || '';
+            buyerBubble.appendChild(buyerMsg);
+            thread.appendChild(buyerBubble);
+
+            // Vendor reply bubble (or waiting indicator)
+            if (inq.reply) {
+                const vendorBubble = document.createElement('div');
+                vendorBubble.className = 'msg-bubble msg-vendor';
+                vendorBubble.style.alignSelf = 'flex-end';
+
+                const vendorLabel = document.createElement('p');
+                vendorLabel.className = 'text-xs text-muted mb-05';
+                vendorLabel.textContent = (inq.vendor && inq.vendor.businessName) || 'Vendor';
+                vendorBubble.appendChild(vendorLabel);
+
+                const vendorMsg = document.createElement('p');
+                vendorMsg.className = 'mb-0 text-sm';
+                vendorMsg.textContent = inq.reply;
+                vendorBubble.appendChild(vendorMsg);
+                thread.appendChild(vendorBubble);
+            } else {
+                const waiting = document.createElement('p');
+                waiting.className = 'text-xs text-muted mt-1';
+                waiting.textContent = '⏳ Waiting for vendor reply…';
+                thread.appendChild(waiting);
+            }
+
+            card.appendChild(thread);
+            return card;
+        }
+
+        loadInquiries();
+    </script>
+</body>
+</html>

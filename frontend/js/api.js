@@ -51,7 +51,25 @@ function goToDashboard(user) {
     if (user.role === 'vendor') {
         window.location.href = resolvePath('vendor/vendor.html');
     } else {
-        window.location.href = resolvePath('index.html');
+        // Buyers go to the marketplace, not homepage
+        window.location.href = resolvePath('buyer/marketplace.html');
+    }
+}
+
+// Safely escape text so it can be set as innerHTML without XSS risk
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Returns total item count in the cart (for the nav badge)
+function getCartCount() {
+    try {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        return cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    } catch (e) {
+        return 0;
     }
 }
 

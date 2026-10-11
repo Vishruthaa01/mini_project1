@@ -10,7 +10,10 @@
     <nav class="navbar">
         <a href="../index.html" class="brand">VendorConnect</a>
         <div class="navbar-nav">
-            <a href="../index.html" class="btn btn-outline">Home</a>
+            <a href="marketplace.html" class="btn btn-outline">Marketplace</a>
+            <a href="cart.html" class="btn btn-outline">Cart</a>
+            <a href="orders.html" class="btn btn-outline">My Orders</a>
+            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
             <a href="buyer-profile.html" class="btn btn-primary">My Profile</a>
             <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
         </div>
@@ -127,8 +130,8 @@
                 localStorage.setItem('user', JSON.stringify(mergedUser));
 
                 if (isSetupMode) {
-                    alert('Profile setup completed successfully! Welcome to VendorConnect.');
-                    window.location.href = '../index.html';
+                    alert('Profile setup completed! Welcome to VendorConnect.');
+                    window.location.href = 'marketplace.html';
                 } else {
                     alert('Profile updated successfully!');
                     saveBtn.disabled = false;

@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+// Middleware to verify JWT token and attach user to request
 const protect = async (req, res, next) => {
     let token;
 
@@ -13,26 +14,40 @@ const protect = async (req, res, next) => {
 
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+            // Fetch the user from the database without password
             req.user = await User.findById(decoded.id).select('-password');
 
-            next();
+            // If the token is valid but the user was deleted/no longer exists, return 401
+            if (!req.user) {
+                return res.status(401).json({ message: 'User no longer exists' });
+            }
+
+            return next();
         } catch (error) {
-            console.error(error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
+            console.error('Auth protect error:', error.message);
+            return res.status(401).json({ message: 'Not authorized, token failed' });
         }
     }
 
     if (!token) {
-        res.status(401).json({ message: 'Not authorized, no token' });
+        return res.status(401).json({ message: 'Not authorized, no token' });
     }
 };
 
+// Middleware restricting access to vendors only
 const vendorOnly = (req, res, next) => {
     if (req.user && req.user.role === 'vendor') {
-        next();
-    } else {
-        res.status(403).json({ message: 'Not authorized as a vendor' });
+        return next();
     }
+    return res.status(403).json({ message: 'Not authorized as a vendor' });
 };
 
-module.exports = { protect, vendorOnly };
+// Middleware restricting access to buyers only
+const buyerOnly = (req, res, next) => {
+    if (req.user && req.user.role === 'buyer') {
+        return next();
+    }
+    return res.status(403).json({ message: 'Not authorized as a buyer' });
+};
+
+module.exports = { protect, vendorOnly, buyerOnly };

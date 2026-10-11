@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { createReview, getProductReviews } = require('../controllers/reviewController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, buyerOnly } = require('../middleware/authMiddleware');
 
 router.route('/')
-    .post(protect, createReview);
+    .post(protect, buyerOnly, createReview);
 
 router.route('/product/:productId')
     .get(getProductReviews);

@@ -1,65 +1,266 @@
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 
-// @desc    Create a new order (buyer)
+// Allowed status transition map for vendor order management
+const ALLOWED_TRANSITIONS = {
+    'Placed': ['Confirmed', 'Cancelled'],
+    'Confirmed': ['Processing', 'Cancelled'],
+    'Processing': ['Shipped', 'Cancelled'],
+    'Shipped': ['Delivered'],
+    'Delivered': [],
+    'Cancelled': []
+};
+
+// @desc    Create a new order (buyer only)
 // @route   POST /api/orders
 // @access  Private (Buyer)
 exports.createOrder = async (req, res) => {
     try {
         const { items, shippingAddress, paymentMethod, customizationNote } = req.body;
 
-        if (!items || items.length === 0) {
-            return res.status(400).json({ message: 'No order items specified' });
+        // 1. Validate items array
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ message: 'Items array must not be empty' });
+        }
+        if (items.length > 20) {
+            return res.status(400).json({ message: 'Maximum 20 items per order allowed' });
         }
 
-        if (!shippingAddress || !shippingAddress.name || !shippingAddress.phone || !shippingAddress.address) {
-            return res.status(400).json({ message: 'Shipping address (name, phone, address) is required' });
-        }
-
-        // Validate products and determine vendor
-        let totalAmount = 0;
-        let vendorId = null;
-        const validatedItems = [];
-
+        // 2. Merge duplicate items by product ID and validate quantities
+        const mergedMap = new Map();
         for (const item of items) {
-            const product = await Product.findById(item.product);
-            if (!product) {
-                return res.status(404).json({ message: `Product not found: ${item.product}` });
+            if (!item || !item.product || !mongoose.Types.ObjectId.isValid(item.product)) {
+                return res.status(400).json({ message: 'Invalid product ID in items' });
+            }
+            const prodId = item.product.toString();
+            const qty = parseInt(item.quantity, 10);
+            if (isNaN(qty) || qty < 1) {
+                return res.status(400).json({ message: 'Item quantity must be an integer of at least 1' });
             }
 
-            if (!vendorId) {
-                vendorId = product.vendor;
+            const currentQty = mergedMap.get(prodId) || 0;
+            const newQty = currentQty + qty;
+            if (newQty > 20) {
+                return res.status(400).json({ message: 'Maximum quantity of 20 per product exceeded' });
+            }
+            mergedMap.set(prodId, newQty);
+        }
+
+        // 3. Validate and sanitize shipping address
+        if (!shippingAddress || typeof shippingAddress !== 'object') {
+            return res.status(400).json({ message: 'Shipping address is required' });
+        }
+        const name = (shippingAddress.name || '').trim();
+        const phone = (shippingAddress.phone || '').trim();
+        const address = (shippingAddress.address || '').trim();
+        const city = (shippingAddress.city || '').trim();
+        const state = (shippingAddress.state || '').trim();
+        const postalCode = (shippingAddress.postalCode || '').trim();
+
+        if (!name || name.length > 100) {
+            return res.status(400).json({ message: 'Recipient name is required (max 100 characters)' });
+        }
+        if (!phone || phone.length > 20) {
+            return res.status(400).json({ message: 'Phone number is required (max 20 characters)' });
+        }
+        if (!address || address.length > 300) {
+            return res.status(400).json({ message: 'Shipping address is required (max 300 characters)' });
+        }
+        if (city.length > 100 || state.length > 100 || postalCode.length > 20) {
+            return res.status(400).json({ message: 'City, state, or postal code exceeded maximum length' });
+        }
+        const sanitizedAddress = { name, phone, address, city, state, postalCode };
+
+        // 4. Payment method check (Only Cash on Delivery is currently supported)
+        if (paymentMethod && paymentMethod !== 'Cash on Delivery') {
+            return res.status(400).json({ message: 'Only Cash on Delivery is accepted for now' });
+        }
+
+        // 5. Customization note check
+        const trimmedNote = (customizationNote || '').trim();
+        if (trimmedNote.length > 500) {
+            return res.status(400).json({ message: 'Customization note must be at most 500 characters' });
+        }
+
+        // 6. Look up products from DB, take prices and images from DB, group by vendor
+        const vendorGroups = new Map();
+        const itemsToDecrement = [];
+
+        for (const [prodId, qty] of mergedMap.entries()) {
+            const productDoc = await Product.findById(prodId);
+            if (!productDoc) {
+                return res.status(404).json({ message: `Product not found: ${prodId}` });
             }
 
-            const qty = Number(item.quantity) || 1;
-            totalAmount += product.price * qty;
+            const vendorKey = productDoc.vendor.toString();
+            if (!vendorGroups.has(vendorKey)) {
+                vendorGroups.set(vendorKey, { vendorId: productDoc.vendor, items: [], totalAmount: 0 });
+            }
 
-            validatedItems.push({
-                product: product._id,
-                name: product.name,
-                price: product.price,
+            const group = vendorGroups.get(vendorKey);
+            group.items.push({
+                product: productDoc._id,
+                name: productDoc.name,
+                price: productDoc.price,
                 quantity: qty,
-                image: product.image || ''
+                image: productDoc.image || ''
+            });
+            group.totalAmount += productDoc.price * qty;
+
+            itemsToDecrement.push({
+                productId: productDoc._id,
+                qty,
+                name: productDoc.name,
+                currentStock: productDoc.stock
             });
         }
 
-        const order = new Order({
-            buyer: req.user._id,
-            vendor: vendorId,
-            items: validatedItems,
-            totalAmount,
-            shippingAddress,
-            paymentMethod: paymentMethod || 'Cash on Delivery',
-            paymentStatus: paymentMethod === 'UPI' || paymentMethod === 'Card' ? 'Completed' : 'Pending',
-            orderStatus: 'Placed',
-            customizationNote: customizationNote || ''
-        });
+        // 7. Atomically decrease stock with rollback on insufficient stock
+        const decrementedList = [];
+        for (const item of itemsToDecrement) {
+            const updated = await Product.findOneAndUpdate(
+                { _id: item.productId, stock: { $gte: item.qty } },
+                { $inc: { stock: -item.qty } },
+                { new: true }
+            );
 
-        const savedOrder = await order.save();
-        res.status(201).json(savedOrder);
+            if (!updated) {
+                // Insufficient stock: roll back previously decremented items
+                for (const dec of decrementedList) {
+                    await Product.findByIdAndUpdate(dec.productId, { $inc: { stock: dec.qty } });
+                }
+                return res.status(409).json({
+                    message: `Not enough stock for ${item.name}. Requested: ${item.qty}, Available: ${item.currentStock}`
+                });
+            }
+
+            decrementedList.push(item);
+        }
+
+        // 8. Create one order per vendor
+        const createdOrders = [];
+        for (const group of vendorGroups.values()) {
+            const order = new Order({
+                buyer: req.user._id,
+                vendor: group.vendorId,
+                items: group.items,
+                totalAmount: group.totalAmount,
+                shippingAddress: sanitizedAddress,
+                paymentMethod: 'Cash on Delivery',
+                paymentStatus: 'Pending',
+                orderStatus: 'Placed',
+                customizationNote: trimmedNote
+            });
+            const saved = await order.save();
+            createdOrders.push(saved);
+        }
+
+        return res.status(201).json({ orders: createdOrders });
     } catch (error) {
-        console.error('Error creating order:', error);
-        res.status(500).json({ message: 'Server error creating order' });
+        console.error('Error creating order:', error.message);
+        return res.status(500).json({ message: 'Server error creating order' });
+    }
+};
+
+// @desc    Cancel order (buyer only, only while Placed)
+// @route   PUT /api/orders/:id/cancel
+// @access  Private (Buyer)
+exports.cancelOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid order ID' });
+        }
+
+        const order = await Order.findById(id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Verify the authenticated buyer owns this order
+        if (order.buyer.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to cancel this order' });
+        }
+
+        // Only allow cancellation while orderStatus is 'Placed'
+        if (order.orderStatus !== 'Placed') {
+            return res.status(400).json({
+                message: `Cannot cancel order with status '${order.orderStatus}'. Orders can only be cancelled while 'Placed'.`
+            });
+        }
+
+        order.orderStatus = 'Cancelled';
+        const savedOrder = await order.save();
+
+        // Atomically restore stock
+        for (const item of order.items) {
+            await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
+        }
+
+        return res.json({ message: 'Order cancelled successfully', order: savedOrder });
+    } catch (error) {
+        console.error('Error cancelling order:', error.message);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Update order status (vendor only, own orders only)
+// @route   PUT /api/orders/:id/status
+// @access  Private (Vendor)
+exports.updateOrderStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { orderStatus, paymentStatus } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid order ID' });
+        }
+
+        const order = await Order.findById(id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Verify authenticated vendor is the owner of this order
+        if (order.vendor.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized to update this order' });
+        }
+
+        // Validate status transition
+        if (orderStatus && orderStatus !== order.orderStatus) {
+            const allowed = ALLOWED_TRANSITIONS[order.orderStatus] || [];
+            if (!allowed.includes(orderStatus)) {
+                return res.status(400).json({
+                    message: `Invalid status transition from '${order.orderStatus}' to '${orderStatus}'`
+                });
+            }
+
+            order.orderStatus = orderStatus;
+
+            // If vendor cancels from Placed/Confirmed/Processing, restore stock
+            if (orderStatus === 'Cancelled') {
+                for (const item of order.items) {
+                    await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
+                }
+            }
+        }
+
+        // Validate paymentStatus: can only become 'Completed' when order is Delivered
+        if (paymentStatus) {
+            if (paymentStatus === 'Completed' && order.orderStatus !== 'Delivered') {
+                return res.status(400).json({
+                    message: 'Payment status can only be set to Completed when the order is Delivered'
+                });
+            }
+            order.paymentStatus = paymentStatus;
+        }
+
+        const updatedOrder = await order.save();
+        return res.json(updatedOrder);
+    } catch (error) {
+        console.error('Error updating order status:', error.message);
+        return res.status(500).json({ message: 'Server error' });
     }
 };
 
@@ -69,12 +270,12 @@ exports.createOrder = async (req, res) => {
 exports.getMyOrders = async (req, res) => {
     try {
         const orders = await Order.find({ buyer: req.user._id })
-            .populate('vendor', 'name businessName phone location')
+            .populate('vendor', 'name businessName location')
             .sort({ createdAt: -1 });
-        res.json(orders);
+        return res.json(orders);
     } catch (error) {
-        console.error('Error fetching buyer orders:', error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error fetching buyer orders:', error.message);
+        return res.status(500).json({ message: 'Server error' });
     }
 };
 
@@ -86,10 +287,10 @@ exports.getVendorOrders = async (req, res) => {
         const orders = await Order.find({ vendor: req.user._id })
             .populate('buyer', 'name email phone')
             .sort({ createdAt: -1 });
-        res.json(orders);
+        return res.json(orders);
     } catch (error) {
-        console.error('Error fetching vendor orders:', error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error fetching vendor orders:', error.message);
+        return res.status(500).json({ message: 'Server error' });
     }
 };
 
@@ -98,9 +299,14 @@ exports.getVendorOrders = async (req, res) => {
 // @access  Private
 exports.getOrderById = async (req, res) => {
     try {
-        const order = await Order.findById(req.params.id)
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid order ID' });
+        }
+
+        const order = await Order.findById(id)
             .populate('buyer', 'name email phone')
-            .populate('vendor', 'name businessName phone location');
+            .populate('vendor', 'name businessName location');
 
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
@@ -114,36 +320,9 @@ exports.getOrderById = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to view this order' });
         }
 
-        res.json(order);
+        return res.json(order);
     } catch (error) {
-        console.error('Error fetching order by ID:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
-};
-
-// @desc    Update order status
-// @route   PUT /api/orders/:id/status
-// @access  Private (Vendor)
-exports.updateOrderStatus = async (req, res) => {
-    try {
-        const { orderStatus, paymentStatus } = req.body;
-        const order = await Order.findById(req.params.id);
-
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
-        }
-
-        if (order.vendor.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Not authorized to update this order' });
-        }
-
-        if (orderStatus) order.orderStatus = orderStatus;
-        if (paymentStatus) order.paymentStatus = paymentStatus;
-
-        const updatedOrder = await order.save();
-        res.json(updatedOrder);
-    } catch (error) {
-        console.error('Error updating order status:', error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error fetching order by ID:', error.message);
+        return res.status(500).json({ message: 'Server error' });
     }
 };

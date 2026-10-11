@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Orders - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Vendor navbar (updated with Orders + Inquiries) -->
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="vendor.html" class="btn btn-outline">Dashboard</a>
+            <a href="add-product.html" class="btn btn-primary">Add Products</a>
+            <a href="orders.html" class="btn btn-outline">Orders</a>
+            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="mb-2">Incoming Orders</h2>
+        <div id="stateMsg" class="state-msg">Loading orders…</div>
+        <div id="ordersList" class="flex-column gap-2 d-none"></div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const currentUser = requireAuth('vendor', true);
+        if (!currentUser) throw new Error('redirect');
+
+        document.getElementById('logoutBtn').addEventListener('click', () => localStorage.clear());
+
+        // Valid next status for each current status (matches backend transition map)
+        const NEXT_STATUS = {
+            'Placed':      'Confirmed',
+            'Confirmed':   'Processing',
+            'Processing':  'Shipped',
+            'Shipped':     'Delivered'
+        };
+
+        async function loadOrders() {
+            const msgEl  = document.getElementById('stateMsg');
+            const listEl = document.getElementById('ordersList');
+
+            try {
+                const orders = await apiRequest('/orders/vendor', 'GET');
+
+                if (!orders || orders.length === 0) {
+                    msgEl.textContent = 'No orders yet. Orders from buyers will appear here.';
+                    return;
+                }
+
+                msgEl.classList.add('d-none');
+                listEl.classList.remove('d-none');
+                listEl.innerHTML = '';
+
+                // Newest first
+                orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                orders.forEach(order => listEl.appendChild(buildOrderCard(order)));
+            } catch (err) {
+                msgEl.textContent = 'Error loading orders: ' + err.message;
+            }
+        }
+
+        function buildOrderCard(order) {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            // ── Header ──
+            const header = document.createElement('div');
+            header.className = 'flex flex-between align-center mb-1';
+
+            const left = document.createElement('div');
+            const idEl = document.createElement('p');
+            idEl.className = 'text-sm text-muted mb-0';
+            idEl.textContent = 'Order #' + order._id.slice(-8).toUpperCase();
+            left.appendChild(idEl);
+            const dateEl = document.createElement('p');
+            dateEl.className = 'text-xs text-muted mb-0';
+            dateEl.textContent = new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+            left.appendChild(dateEl);
+            header.appendChild(left);
+
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-' + (order.orderStatus || '').toLowerCase();
+            badge.textContent = order.orderStatus || '';
+            header.appendChild(badge);
+            card.appendChild(header);
+
+            // ── Buyer details ──
+            const ship = order.shippingAddress || {};
+            const buyerInfo = document.createElement('div');
+            buyerInfo.className = 'bg-nav mb-1';
+            buyerInfo.style.borderRadius = 'var(--border-radius)';
+
+            const bTitle = document.createElement('h4');
+            bTitle.className = 'mb-05';
+            bTitle.textContent = 'Buyer Details';
+            buyerInfo.appendChild(bTitle);
+
+            const bName = document.createElement('p');
+            bName.className = 'mb-05 text-sm';
+            bName.textContent = '👤 ' + (ship.name || 'N/A');
+            buyerInfo.appendChild(bName);
+
+            const bPhone = document.createElement('p');
+            bPhone.className = 'mb-05 text-sm';
+            bPhone.textContent = '📞 ' + (ship.phone || 'N/A');
+            buyerInfo.appendChild(bPhone);
+
+            const bAddr = document.createElement('p');
+            bAddr.className = 'mb-0 text-sm';
+            bAddr.textContent = '📦 ' + (ship.address || 'N/A');
+            buyerInfo.appendChild(bAddr);
+
+            card.appendChild(buyerInfo);
+
+            // ── Items ──
+            const itemsTitle = document.createElement('h4');
+            itemsTitle.className = 'mb-05';
+            itemsTitle.textContent = 'Items';
+            card.appendChild(itemsTitle);
+
+            let total = 0;
+            (order.items || []).forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'flex align-center gap-1 mb-05';
+
+                const img = document.createElement('img');
+                img.src = item.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=100&q=60';
+                img.alt = item.name || '';
+                img.style.cssText = 'width:50px;height:50px;object-fit:cover;border-radius:6px;flex-shrink:0;';
+                row.appendChild(img);
+
+                const info = document.createElement('div');
+                const nameEl = document.createElement('p');
+                nameEl.className = 'mb-0 font-bold text-sm';
+                nameEl.textContent = item.name || '';
+                info.appendChild(nameEl);
+                const qp = document.createElement('p');
+                qp.className = 'mb-0 text-sm text-muted';
+                qp.textContent = 'Qty: ' + item.quantity + '  ·  ₹' + item.price;
+                info.appendChild(qp);
+                row.appendChild(info);
+                card.appendChild(row);
+                total += (item.price || 0) * (item.quantity || 0);
+            });
+
+            // If item has a customization note
+            if (order.customizationNote) {
+                const noteEl = document.createElement('p');
+                noteEl.className = 'text-sm text-muted mt-05 mb-05';
+                noteEl.textContent = '📝 Note: ' + order.customizationNote;
+                card.appendChild(noteEl);
+            }
+
+            const totRow = document.createElement('div');
+            totRow.className = 'flex flex-between border-top mt-1 mb-1';
+            const totL = document.createElement('span');
+            totL.className = 'font-bold';
+            totL.textContent = 'Total';
+            const totR = document.createElement('span');
+            totR.className = 'font-bold text-primary';
+            totR.textContent = '₹' + (order.totalAmount || total);
+            totRow.appendChild(totL);
+            totRow.appendChild(totR);
+            card.appendChild(totRow);
+
+            // Payment status
+            const payEl = document.createElement('p');
+            payEl.className = 'text-sm text-muted mb-1';
+            payEl.textContent = 'Payment: ' + (order.paymentMethod || 'COD') + ' — ' + (order.paymentStatus || 'Pending');
+            card.appendChild(payEl);
+
+            // ── Action buttons ──
+            const errorEl = document.createElement('p');
+            errorEl.className = 'd-none';
+            errorEl.style.color = '#ff4757';
+            card.appendChild(errorEl);
+
+            const btnRow = document.createElement('div');
+            btnRow.className = 'flex gap-1 flex-wrap';
+
+            // "Advance to next status" button
+            const next = NEXT_STATUS[order.orderStatus];
+            if (next) {
+                const advBtn = document.createElement('button');
+                advBtn.className = 'btn btn-primary';
+                advBtn.textContent = 'Mark as ' + next;
+                advBtn.dataset.orderId = order._id;
+                advBtn.dataset.status  = next;
+                advBtn.addEventListener('click', (e) => updateStatus(e, errorEl, card, order));
+                btnRow.appendChild(advBtn);
+            }
+
+            // Mark payment completed (only when Delivered and payment not yet Completed)
+            if (order.orderStatus === 'Delivered' && order.paymentStatus !== 'Completed') {
+                const payBtn = document.createElement('button');
+                payBtn.className = 'btn btn-outline';
+                payBtn.textContent = 'Mark Payment Received';
+                payBtn.dataset.orderId = order._id;
+                payBtn.dataset.status  = 'Delivered'; // same status, triggers paymentStatus update on backend
+                payBtn.dataset.payment = 'Completed';
+                payBtn.addEventListener('click', (e) => updateStatus(e, errorEl, card, order));
+                btnRow.appendChild(payBtn);
+            }
+
+            // Cancel button (vendor can cancel Placed / Confirmed / Processing)
+            if (['Placed', 'Confirmed', 'Processing'].includes(order.orderStatus)) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn btn-danger';
+                cancelBtn.textContent = 'Cancel Order';
+                cancelBtn.dataset.orderId = order._id;
+                cancelBtn.dataset.status  = 'Cancelled';
+                cancelBtn.addEventListener('click', (e) => updateStatus(e, errorEl, card, order));
+                btnRow.appendChild(cancelBtn);
+            }
+
+            card.appendChild(btnRow);
+            return card;
+        }
+
+        async function updateStatus(e, errorEl, card, order) {
+            const btn     = e.currentTarget;
+            const orderId = btn.dataset.orderId;
+            const status  = btn.dataset.status;
+
+            if (status === 'Cancelled') {
+                if (!confirm('Cancel this order? Stock will be restored.')) return;
+            }
+
+            btn.disabled = true;
+            const orig = btn.textContent;
+            btn.textContent = 'Updating…';
+            errorEl.classList.add('d-none');
+
+            try {
+                await apiRequest('/orders/' + orderId + '/status', 'PUT', { orderStatus: status });
+                // Reload full list to reflect new status
+                loadOrders();
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.textContent = orig;
+            }
+        }
+
+        loadOrders();
+    </script>
+</body>
+</html>

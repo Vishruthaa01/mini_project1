@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Buyer navbar -->
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="marketplace.html" class="btn btn-outline">Marketplace</a>
+            <a href="cart.html" class="btn btn-outline">
+                Cart <span class="cart-badge" id="cartCountBadge">0</span>
+            </a>
+            <a href="orders.html" class="btn btn-outline">My Orders</a>
+            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="buyer-profile.html" class="btn btn-outline">My Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="mb-2">Your Cart</h2>
+
+        <!-- Empty cart state -->
+        <div id="emptyCart" class="card text-center d-none">
+            <h3 class="text-muted">Your cart is empty</h3>
+            <p>Discover handcrafted products in the marketplace.</p>
+            <a href="marketplace.html" class="btn btn-primary mt-2">Browse Marketplace</a>
+        </div>
+
+        <!-- Cart content (items + checkout form) -->
+        <div id="cartContent" class="grid-2 gap-2 d-none">
+            <!-- Left: cart items -->
+            <div>
+                <div class="card mb-2">
+                    <h3 class="mb-1">Items</h3>
+                    <div id="cartItemsList"></div>
+                </div>
+                <!-- Order total -->
+                <div class="card">
+                    <div class="flex flex-between">
+                        <span class="font-bold">Subtotal</span>
+                        <span class="font-bold text-primary" id="subtotalEl">₹0</span>
+                    </div>
+                    <p class="text-sm text-muted mb-0 mt-1">
+                        Shipping is free. Final price confirmed by server.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Right: checkout form -->
+            <div class="card">
+                <h3 class="mb-1">Shipping &amp; Payment</h3>
+
+                <p id="orderMsg" class="d-none"></p>
+
+                <div class="form-group">
+                    <label class="form-label" for="shipName">Full Name *</label>
+                    <input type="text" id="shipName" class="form-control" required placeholder="Recipient name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="shipPhone">Phone *</label>
+                    <input type="tel" id="shipPhone" class="form-control" required placeholder="+91 98765 43210">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="shipAddress">Full Address *</label>
+                    <textarea id="shipAddress" class="form-control" rows="3" required
+                        placeholder="House/flat no, street, city, pin code"></textarea>
+                </div>
+
+                <!-- Payment method — CoD only for now -->
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <div class="flex flex-column gap-05">
+                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                            <input type="radio" name="payment" value="COD" checked> Cash on Delivery
+                        </label>
+                        <label style="display:flex;align-items:center;gap:0.5rem;opacity:0.5;cursor:not-allowed;" title="Coming soon">
+                            <input type="radio" name="payment" value="UPI" disabled> UPI (coming soon)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:0.5rem;opacity:0.5;cursor:not-allowed;" title="Coming soon">
+                            <input type="radio" name="payment" value="Card" disabled> Card (coming soon)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="customNote">Customization Note (optional)</label>
+                    <textarea id="customNote" class="form-control" rows="2"
+                        placeholder="Any special requests or customizations…"></textarea>
+                </div>
+
+                <button class="btn btn-primary w-100" id="placeOrderBtn">Place Order</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const currentUser = requireAuth('buyer', true);
+        if (!currentUser) throw new Error('redirect');
+
+        document.getElementById('logoutBtn').addEventListener('click', () => localStorage.clear());
+
+        // ── Render cart ───────────────────────────────────────────
+        function renderCart() {
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('cart') || '[]'); } catch (e) {}
+
+            // Update badge
+            const count = cart.reduce((s, i) => s + (i.quantity || 0), 0);
+            document.getElementById('cartCountBadge').textContent = count || '';
+
+            if (cart.length === 0) {
+                document.getElementById('emptyCart').classList.remove('d-none');
+                document.getElementById('cartContent').classList.add('d-none');
+                return;
+            }
+            document.getElementById('emptyCart').classList.add('d-none');
+            document.getElementById('cartContent').classList.remove('d-none');
+
+            // Render item rows
+            const list = document.getElementById('cartItemsList');
+            list.innerHTML = '';
+            let subtotal = 0;
+
+            cart.forEach((item, index) => {
+                const row = buildCartRow(item, index, cart);
+                list.appendChild(row);
+                subtotal += (item.price || 0) * (item.quantity || 1);
+            });
+
+            document.getElementById('subtotalEl').textContent = '₹' + subtotal;
+        }
+
+        function buildCartRow(item, index, cart) {
+            const row = document.createElement('div');
+            row.className = 'cart-item';
+            row.dataset.index = index;
+
+            // Image (handle base64 + normal URLs)
+            const img = document.createElement('img');
+            img.src = item.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=200&q=60';
+            img.alt = item.name;
+            row.appendChild(img);
+
+            // Info column
+            const info = document.createElement('div');
+            info.style.flex = '1';
+
+            const nameEl = document.createElement('p');
+            nameEl.className = 'font-bold mb-05';
+            nameEl.textContent = item.name;
+            info.appendChild(nameEl);
+
+            const vendorEl = document.createElement('p');
+            vendorEl.className = 'text-sm text-muted mb-05';
+            vendorEl.textContent = 'by ' + (item.vendorName || 'Artisan');
+            info.appendChild(vendorEl);
+
+            const priceEl = document.createElement('p');
+            priceEl.className = 'text-primary font-bold mb-05';
+            priceEl.textContent = '₹' + item.price + ' each';
+            info.appendChild(priceEl);
+
+            // Quantity controls
+            const qtyRow = document.createElement('div');
+            qtyRow.className = 'cart-qty';
+
+            const minusBtn = document.createElement('button');
+            minusBtn.textContent = '−';
+            minusBtn.dataset.index = index;
+            minusBtn.addEventListener('click', () => changeQty(index, -1));
+
+            const qtyNum = document.createElement('span');
+            qtyNum.textContent = item.quantity;
+
+            const plusBtn = document.createElement('button');
+            plusBtn.textContent = '+';
+            plusBtn.dataset.index = index;
+            plusBtn.addEventListener('click', () => changeQty(index, 1));
+
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.className = 'btn btn-danger';
+            removeBtn.style.padding = '0.3rem 0.7rem';
+            removeBtn.style.fontSize = '0.8rem';
+            removeBtn.dataset.index = index;
+            removeBtn.addEventListener('click', () => removeItem(index));
+
+            qtyRow.appendChild(minusBtn);
+            qtyRow.appendChild(qtyNum);
+            qtyRow.appendChild(plusBtn);
+            qtyRow.appendChild(removeBtn);
+            info.appendChild(qtyRow);
+            row.appendChild(info);
+
+            return row;
+        }
+
+        function changeQty(index, delta) {
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('cart') || '[]'); } catch (e) {}
+            if (!cart[index]) return;
+            cart[index].quantity = Math.max(1, Math.min(20, cart[index].quantity + delta));
+            localStorage.setItem('cart', JSON.stringify(cart));
+            renderCart();
+        }
+
+        function removeItem(index) {
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('cart') || '[]'); } catch (e) {}
+            cart.splice(index, 1);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            renderCart();
+        }
+
+        // Pre-fill shipping form from saved profile
+        function prefillShipping() {
+            try {
+                const u = JSON.parse(localStorage.getItem('user') || '{}');
+                if (u.name)     document.getElementById('shipName').value    = u.name;
+                if (u.phone)    document.getElementById('shipPhone').value   = u.phone;
+                if (u.location) document.getElementById('shipAddress').value = u.location;
+            } catch (e) {}
+        }
+
+        // ── Place Order ───────────────────────────────────────────
+        document.getElementById('placeOrderBtn').addEventListener('click', placeOrder);
+
+        async function placeOrder() {
+            const btn    = document.getElementById('placeOrderBtn');
+            const msgEl  = document.getElementById('orderMsg');
+            msgEl.classList.add('d-none');
+
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('cart') || '[]'); } catch (e) {}
+            if (cart.length === 0) return;
+
+            const name    = document.getElementById('shipName').value.trim();
+            const phone   = document.getElementById('shipPhone').value.trim();
+            const address = document.getElementById('shipAddress').value.trim();
+
+            if (!name || !phone || !address) {
+                msgEl.style.color = '#ff4757';
+                msgEl.textContent = 'Please fill in all shipping details.';
+                msgEl.classList.remove('d-none');
+                return;
+            }
+
+            const shippingAddress = { name, phone, address };
+            const paymentMethod   = document.querySelector('input[name="payment"]:checked').value;
+            const customizationNote = document.getElementById('customNote').value.trim();
+
+            // Items array: only productId + quantity (server recalculates price)
+            const items = cart.map(i => ({ product: i.productId, quantity: i.quantity }));
+
+            btn.disabled = true;
+            btn.textContent = 'Placing Order…';
+
+            try {
+                await apiRequest('/orders', 'POST', { items, shippingAddress, paymentMethod, customizationNote });
+                // Clear cart on success and go to orders page
+                localStorage.removeItem('cart');
+                window.location.href = 'orders.html';
+            } catch (err) {
+                msgEl.style.color = '#ff4757';
+                // 409 means stock conflict — server gives a helpful message
+                msgEl.textContent = err.message;
+                msgEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.textContent = 'Place Order';
+            }
+        }
+
+        // Init
+        prefillShipping();
+        renderCart();
+    </script>
+</body>
+</html>

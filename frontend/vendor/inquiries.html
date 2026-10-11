@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inquiries - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Vendor navbar -->
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="vendor.html" class="btn btn-outline">Dashboard</a>
+            <a href="add-product.html" class="btn btn-primary">Add Products</a>
+            <a href="orders.html" class="btn btn-outline">Orders</a>
+            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="mb-2">Customer Inquiries</h2>
+        <div id="stateMsg" class="state-msg">Loading inquiries…</div>
+        <div id="inquiriesList" class="flex-column gap-2 d-none"></div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const currentUser = requireAuth('vendor', true);
+        if (!currentUser) throw new Error('redirect');
+
+        document.getElementById('logoutBtn').addEventListener('click', () => localStorage.clear());
+
+        async function loadInquiries() {
+            const msgEl  = document.getElementById('stateMsg');
+            const listEl = document.getElementById('inquiriesList');
+
+            try {
+                const inquiries = await apiRequest('/inquiries/vendor', 'GET');
+
+                if (!inquiries || inquiries.length === 0) {
+                    msgEl.textContent = 'No inquiries yet. Buyers will ask questions from product pages.';
+                    return;
+                }
+
+                msgEl.classList.add('d-none');
+                listEl.classList.remove('d-none');
+
+                inquiries.forEach(inq => listEl.appendChild(buildInquiryCard(inq)));
+            } catch (err) {
+                msgEl.textContent = 'Error loading inquiries: ' + err.message;
+            }
+        }
+
+        function buildInquiryCard(inq) {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            // ── Header ──
+            const header = document.createElement('div');
+            header.className = 'flex flex-between align-center mb-1';
+
+            const subj = document.createElement('h4');
+            subj.className = 'mb-0';
+            subj.textContent = inq.subject || 'Inquiry';
+            header.appendChild(subj);
+
+            const date = document.createElement('span');
+            date.className = 'text-xs text-muted';
+            date.textContent = inq.createdAt ? new Date(inq.createdAt).toLocaleDateString('en-IN') : '';
+            header.appendChild(date);
+            card.appendChild(header);
+
+            // Buyer name + product
+            if (inq.buyer) {
+                const buyerP = document.createElement('p');
+                buyerP.className = 'text-sm text-muted mb-05';
+                buyerP.textContent = 'From: ' + (inq.buyer.name || 'Buyer');
+                card.appendChild(buyerP);
+            }
+            if (inq.product && inq.product.name) {
+                const prodP = document.createElement('p');
+                prodP.className = 'text-sm text-muted mb-1';
+                prodP.textContent = '🛍 ' + inq.product.name;
+                card.appendChild(prodP);
+            }
+
+            // Message thread
+            const thread = document.createElement('div');
+            thread.className = 'flex-column';
+            thread.style.display = 'flex';
+
+            // Buyer message
+            const buyerBubble = document.createElement('div');
+            buyerBubble.className = 'msg-bubble msg-buyer';
+            const buyerLabel = document.createElement('p');
+            buyerLabel.className = 'text-xs text-muted mb-05';
+            buyerLabel.textContent = (inq.buyer && inq.buyer.name) || 'Buyer';
+            buyerBubble.appendChild(buyerLabel);
+            const buyerMsg = document.createElement('p');
+            buyerMsg.className = 'mb-0 text-sm';
+            buyerMsg.textContent = inq.message || '';
+            buyerBubble.appendChild(buyerMsg);
+            thread.appendChild(buyerBubble);
+
+            // Existing reply (if any)
+            if (inq.reply) {
+                const vendorBubble = document.createElement('div');
+                vendorBubble.className = 'msg-bubble msg-vendor';
+                vendorBubble.style.alignSelf = 'flex-end';
+                const vendorLabel = document.createElement('p');
+                vendorLabel.className = 'text-xs text-muted mb-05';
+                vendorLabel.textContent = 'You (Vendor)';
+                vendorBubble.appendChild(vendorLabel);
+                const vendorMsg = document.createElement('p');
+                vendorMsg.className = 'mb-0 text-sm';
+                vendorMsg.textContent = inq.reply;
+                vendorBubble.appendChild(vendorMsg);
+                thread.appendChild(vendorBubble);
+            }
+
+            card.appendChild(thread);
+
+            // ── Reply box (always show — vendor can update reply) ──
+            const replySection = document.createElement('div');
+            replySection.className = 'mt-1';
+
+            const errEl = document.createElement('p');
+            errEl.className = 'd-none text-sm';
+            errEl.style.color = '#ff4757';
+            replySection.appendChild(errEl);
+
+            const textarea = document.createElement('textarea');
+            textarea.className = 'form-control mb-1';
+            textarea.rows = 3;
+            textarea.maxLength = 1000;
+            textarea.placeholder = 'Type your reply here…';
+            // Pre-fill with existing reply so vendor can edit
+            if (inq.reply) textarea.value = inq.reply;
+            replySection.appendChild(textarea);
+
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'btn btn-primary';
+            sendBtn.textContent = inq.reply ? 'Update Reply' : 'Send Reply';
+            // Store inquiry ID in data attribute (not onclick)
+            sendBtn.dataset.inqId = inq._id;
+            sendBtn.addEventListener('click', () => sendReply(inq._id, textarea, sendBtn, errEl, card, inq));
+            replySection.appendChild(sendBtn);
+
+            card.appendChild(replySection);
+            return card;
+        }
+
+        async function sendReply(inqId, textarea, btn, errEl, card, inq) {
+            const reply = textarea.value.trim();
+            if (!reply) {
+                errEl.textContent = 'Reply cannot be empty.';
+                errEl.classList.remove('d-none');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Sending…';
+            errEl.classList.add('d-none');
+
+            try {
+                await apiRequest('/inquiries/' + inqId + '/reply', 'PUT', { reply });
+                btn.textContent = 'Reply Sent ✓';
+                // Update button label to "Update Reply" going forward
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Update Reply';
+                }, 1500);
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.textContent = inq.reply ? 'Update Reply' : 'Send Reply';
+            }
+        }
+
+        loadInquiries();
+    </script>
+</body>
+</html>

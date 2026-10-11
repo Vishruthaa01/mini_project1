@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Buyer navbar -->
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="marketplace.html" class="btn btn-outline">Marketplace</a>
+            <a href="cart.html" class="btn btn-outline">
+                Cart <span class="cart-badge" id="cartCountBadge">0</span>
+            </a>
+            <a href="orders.html" class="btn btn-outline">My Orders</a>
+            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="buyer-profile.html" class="btn btn-outline">My Profile</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="mb-2">
+            <h2>Handicraft Marketplace</h2>
+            <p>Discover authentic handmade crafts from Indian artisans</p>
+        </div>
+
+        <!-- Filter bar — search, category, price, stock, sort -->
+        <div class="filter-bar">
+            <div class="filter-group" style="flex: 2; min-width: 200px;">
+                <label for="searchInput">Search</label>
+                <input type="text" id="searchInput" class="form-control" placeholder="Search products…">
+            </div>
+            <div class="filter-group">
+                <label for="categorySelect">Category</label>
+                <select id="categorySelect" class="form-control">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="minPrice">Min Price (₹)</label>
+                <input type="number" id="minPrice" class="form-control" placeholder="0" min="0">
+            </div>
+            <div class="filter-group">
+                <label for="maxPrice">Max Price (₹)</label>
+                <input type="number" id="maxPrice" class="form-control" placeholder="Any" min="0">
+            </div>
+            <div class="filter-group" style="min-width: 110px;">
+                <label>&nbsp;</label>
+                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-weight:600;">
+                    <input type="checkbox" id="inStockOnly"> In Stock
+                </label>
+            </div>
+            <div class="filter-group">
+                <label for="sortSelect">Sort By</label>
+                <select id="sortSelect" class="form-control">
+                    <option value="newest">Newest</option>
+                    <option value="priceAsc">Price: Low → High</option>
+                    <option value="priceDesc">Price: High → Low</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Product grid -->
+        <div id="stateMsg" class="state-msg d-none">Loading products…</div>
+        <div id="productGrid" class="grid"></div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        // requireAuth ensures only logged-in buyers can see this page
+        const currentUser = requireAuth('buyer', true);
+        if (!currentUser) throw new Error('redirect');
+
+        // Update cart count badge on load
+        document.getElementById('cartCountBadge').textContent = getCartCount() || '';
+        // Logout clears storage
+        document.getElementById('logoutBtn').addEventListener('click', () => localStorage.clear());
+
+        let currentPage = 1;
+        let debounceTimer = null;
+
+        // Load category dropdown from the API (never hardcode)
+        async function loadCategories() {
+            try {
+                const cats = await apiRequest('/products/categories', 'GET');
+                const sel = document.getElementById('categorySelect');
+                cats.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    sel.appendChild(opt);
+                });
+            } catch (e) { /* non-critical, still usable without */ }
+        }
+
+        // Build query string from current filter values
+        function buildQuery(page) {
+            const q      = document.getElementById('searchInput').value.trim();
+            const cat    = document.getElementById('categorySelect').value;
+            const minP   = document.getElementById('minPrice').value;
+            const maxP   = document.getElementById('maxPrice').value;
+            const stock  = document.getElementById('inStockOnly').checked;
+            const sort   = document.getElementById('sortSelect').value;
+
+            const params = new URLSearchParams({ page, limit: 12, sort });
+            if (q)     params.set('q', q);
+            if (cat)   params.set('category', cat);
+            if (minP)  params.set('minPrice', minP);
+            if (maxP)  params.set('maxPrice', maxP);
+            if (stock) params.set('inStock', 'true');
+            return '/products?' + params.toString();
+        }
+
+        async function loadProducts(page = 1) {
+            currentPage = page;
+            const msgEl = document.getElementById('stateMsg');
+            const grid  = document.getElementById('productGrid');
+            msgEl.textContent = 'Loading products…';
+            msgEl.classList.remove('d-none');
+            grid.innerHTML = '';
+
+            try {
+                const data = await apiRequest(buildQuery(page), 'GET');
+                msgEl.classList.add('d-none');
+
+                if (!data.products || data.products.length === 0) {
+                    msgEl.textContent = 'No products found. Try different filters.';
+                    msgEl.classList.remove('d-none');
+                    renderPagination(data.page || 1, data.totalPages || 1);
+                    return;
+                }
+
+                data.products.forEach(p => grid.appendChild(buildProductCard(p)));
+                renderPagination(data.page, data.totalPages);
+            } catch (err) {
+                msgEl.textContent = 'Error loading products: ' + err.message;
+                msgEl.classList.remove('d-none');
+            }
+        }
+
+        // Build a single product card safely (no innerHTML for user data)
+        function buildProductCard(p) {
+            const card = document.createElement('div');
+            card.className = 'card card-hover';
+            card.style.cursor = 'pointer';
+            // Navigate to product detail on click
+            card.dataset.id = p._id;
+            card.addEventListener('click', () => {
+                window.location.href = 'product.html?id=' + p._id;
+            });
+
+            // Image wrapper (handles both base64 and normal URLs)
+            const imgWrap = document.createElement('div');
+            imgWrap.className = 'product-img-wrapper mb-1';
+
+            const img = document.createElement('img');
+            img.src = p.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
+            img.alt = p.name;
+            img.className = 'w-100 product-img';
+            imgWrap.appendChild(img);
+
+            // Sold out overlay
+            if (p.stock === 0) {
+                const overlay = document.createElement('div');
+                overlay.className = 'sold-out-overlay';
+                const span = document.createElement('span');
+                span.textContent = 'SOLD OUT';
+                overlay.appendChild(span);
+                imgWrap.appendChild(overlay);
+            }
+            card.appendChild(imgWrap);
+
+            // Category badge
+            const badge = document.createElement('span');
+            badge.className = 'product-badge';
+            badge.textContent = p.category || '';
+            card.appendChild(badge);
+
+            // Name
+            const h3 = document.createElement('h3');
+            h3.className = 'mb-05';
+            h3.textContent = p.name;
+            card.appendChild(h3);
+
+            // Vendor name
+            const vendorP = document.createElement('p');
+            vendorP.className = 'text-sm text-muted mb-1';
+            vendorP.textContent = 'by ' + ((p.vendor && p.vendor.businessName) || 'Artisan');
+            card.appendChild(vendorP);
+
+            // Price row
+            const priceRow = document.createElement('div');
+            priceRow.className = 'flex flex-between border-top';
+
+            const priceEl = document.createElement('h3');
+            priceEl.className = 'text-primary mb-0';
+            priceEl.textContent = '₹' + p.price;
+            priceRow.appendChild(priceEl);
+
+            const stockEl = document.createElement('small');
+            stockEl.className = 'text-muted';
+            stockEl.textContent = p.stock > 0 ? p.stock + ' left' : 'Sold out';
+            priceRow.appendChild(stockEl);
+
+            card.appendChild(priceRow);
+            return card;
+        }
+
+        // Render pagination buttons
+        function renderPagination(page, totalPages) {
+            const el = document.getElementById('pagination');
+            el.innerHTML = '';
+            if (totalPages <= 1) return;
+
+            for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                if (i === page) btn.classList.add('active');
+                btn.addEventListener('click', () => loadProducts(i));
+                el.appendChild(btn);
+            }
+        }
+
+        // Debounce search input (wait 400ms after user stops typing)
+        document.getElementById('searchInput').addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => loadProducts(1), 400);
+        });
+
+        // All other filters reload immediately on change
+        ['categorySelect', 'minPrice', 'maxPrice', 'inStockOnly', 'sortSelect'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => loadProducts(1));
+        });
+
+        // Init
+        loadCategories();
+        loadProducts(1);
+    </script>
+</body>
+</html>
