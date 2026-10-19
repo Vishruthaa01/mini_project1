@@ -17,8 +17,17 @@ async function apiRequest(path, method = 'GET', body = null) {
 
     const data = await response.json();
     if (!response.ok) {
+        // If request carried a token and received 401 (not an auth endpoint itself), session is expired
+        const isAuthEndpoint = path.startsWith('/auth/login') || path.startsWith('/auth/signup');
+        if (token && response.status === 401 && !isAuthEndpoint) {
+            localStorage.clear();
+            sessionStorage.setItem('session_expired_msg', 'Your session has expired. Please log in again.');
+            window.location.href = resolvePath('authentication/login.html?expired=1');
+            return;
+        }
         throw new Error(data.message || 'Something went wrong');
-    } return data;
+    }
+    return data;
 }
 
 function resolvePath(target) {

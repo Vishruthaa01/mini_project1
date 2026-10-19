@@ -40,10 +40,14 @@ app.use('/api', (req, res) => {
     return res.status(404).json({ message: 'API route not found' });
 });
 
-// Centralized error handler returning { message } without stack traces
+// Centralized error handler returning safe { message } without exposing internal 5xx details
 app.use((err, req, res, next) => {
     const statusCode = err.status || err.statusCode || 500;
-    return res.status(statusCode).json({ message: err.message || 'Server error' });
+    if (statusCode >= 500) {
+        console.error(`[Server Error ${statusCode}]`, err.stack || err.message || err);
+        return res.status(statusCode).json({ message: 'Server error' });
+    }
+    return res.status(statusCode).json({ message: err.message || 'Request failed' });
 });
 
 const PORT = process.env.PORT || 5000;

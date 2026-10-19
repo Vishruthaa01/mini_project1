@@ -90,7 +90,7 @@ exports.createOrder = async (req, res) => {
         for (const [prodId, qty] of mergedMap.entries()) {
             const productDoc = await Product.findById(prodId);
             if (!productDoc) {
-                return res.status(404).json({ message: `Product not found: ${prodId}` });
+                return res.status(404).json({ message: 'One or more items in your cart are no longer available. Please refresh your cart.' });
             }
 
             const vendorKey = productDoc.vendor.toString();
@@ -138,22 +138,34 @@ exports.createOrder = async (req, res) => {
             decrementedList.push(item);
         }
 
-        // 8. Create one order per vendor
+        // 8. Create one order per vendor with stock rollback protection
         const createdOrders = [];
-        for (const group of vendorGroups.values()) {
-            const order = new Order({
-                buyer: req.user._id,
-                vendor: group.vendorId,
-                items: group.items,
-                totalAmount: group.totalAmount,
-                shippingAddress: sanitizedAddress,
-                paymentMethod: 'Cash on Delivery',
-                paymentStatus: 'Pending',
-                orderStatus: 'Placed',
-                customizationNote: trimmedNote
-            });
-            const saved = await order.save();
-            createdOrders.push(saved);
+        try {
+            for (const group of vendorGroups.values()) {
+                const order = new Order({
+                    buyer: req.user._id,
+                    vendor: group.vendorId,
+                    items: group.items,
+                    totalAmount: group.totalAmount,
+                    shippingAddress: sanitizedAddress,
+                    paymentMethod: 'Cash on Delivery',
+                    paymentStatus: 'Pending',
+                    orderStatus: 'Placed',
+                    customizationNote: trimmedNote
+                });
+                const saved = await order.save();
+                createdOrders.push(saved);
+            }
+        } catch (orderSaveError) {
+            // Roll back stock if order creation fails to prevent stock loss
+            for (const dec of decrementedList) {
+                await Product.findByIdAndUpdate(dec.productId, { $inc: { stock: dec.qty } });
+            }
+            // Clean up any partially created orders
+            for (const created of createdOrders) {
+                await Order.findByIdAndDelete(created._id);
+            }
+            throw orderSaveError;
         }
 
         return res.status(201).json({ orders: createdOrders });
@@ -173,32 +185,34 @@ exports.cancelOrder = async (req, res) => {
             return res.status(400).json({ message: 'Invalid order ID' });
         }
 
-        const order = await Order.findById(id);
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
-        }
+        // Atomically transition from 'Placed' to 'Cancelled' for the authenticated buyer
+        // This ensures concurrent requests cannot restore stock more than once
+        const updatedOrder = await Order.findOneAndUpdate(
+            { _id: id, buyer: req.user._id, orderStatus: 'Placed' },
+            { $set: { orderStatus: 'Cancelled' } },
+            { new: true }
+        );
 
-        // Verify the authenticated buyer owns this order
-        if (order.buyer.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Not authorized to cancel this order' });
-        }
-
-        // Only allow cancellation while orderStatus is 'Placed'
-        if (order.orderStatus !== 'Placed') {
+        if (!updatedOrder) {
+            // Find existing order to give a specific, user-friendly error message
+            const existingOrder = await Order.findById(id);
+            if (!existingOrder) {
+                return res.status(404).json({ message: 'Order not found' });
+            }
+            if (existingOrder.buyer.toString() !== req.user._id.toString()) {
+                return res.status(403).json({ message: 'Not authorized to cancel this order' });
+            }
             return res.status(400).json({
-                message: `Cannot cancel order with status '${order.orderStatus}'. Orders can only be cancelled while 'Placed'.`
+                message: `Cannot cancel order with status '${existingOrder.orderStatus}'. Orders can only be cancelled while 'Placed'.`
             });
         }
 
-        order.orderStatus = 'Cancelled';
-        const savedOrder = await order.save();
-
-        // Atomically restore stock
-        for (const item of order.items) {
+        // Atomically restore stock ONLY because this request won the atomic transition
+        for (const item of updatedOrder.items) {
             await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
         }
 
-        return res.json({ message: 'Order cancelled successfully', order: savedOrder });
+        return res.json({ message: 'Order cancelled successfully', order: updatedOrder });
     } catch (error) {
         console.error('Error cancelling order:', error.message);
         return res.status(500).json({ message: 'Server error' });
@@ -217,7 +231,7 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: 'Invalid order ID' });
         }
 
-        const order = await Order.findById(id);
+        let order = await Order.findById(id);
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
         }
@@ -236,14 +250,26 @@ exports.updateOrderStatus = async (req, res) => {
                 });
             }
 
-            order.orderStatus = orderStatus;
+            // Atomic status transition checking current status
+            const currentStatus = order.orderStatus;
+            const updated = await Order.findOneAndUpdate(
+                { _id: id, orderStatus: currentStatus },
+                { $set: { orderStatus } },
+                { new: true }
+            );
 
-            // If vendor cancels from Placed/Confirmed/Processing, restore stock
+            if (!updated) {
+                return res.status(409).json({ message: 'Order status was changed concurrently. Please refresh.' });
+            }
+
+            // If vendor cancels from Placed/Confirmed/Processing, restore stock only once
             if (orderStatus === 'Cancelled') {
-                for (const item of order.items) {
+                for (const item of updated.items) {
                     await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
                 }
             }
+
+            order = updated;
         }
 
         // Validate paymentStatus: can only become 'Completed' when order is Delivered
@@ -254,10 +280,10 @@ exports.updateOrderStatus = async (req, res) => {
                 });
             }
             order.paymentStatus = paymentStatus;
+            await order.save();
         }
 
-        const updatedOrder = await order.save();
-        return res.json(updatedOrder);
+        return res.json(order);
     } catch (error) {
         console.error('Error updating order status:', error.message);
         return res.status(500).json({ message: 'Server error' });

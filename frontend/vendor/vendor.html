@@ -66,26 +66,56 @@
                     const card = document.createElement('div');
                     card.className = 'card card-hover';
                     
-                    const imageUrl = product.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
-                    
-                    card.innerHTML = `
-                        <div class="w-100 mb-1 product-img-wrapper">
-                            <img src="${imageUrl}" alt="${product.name}" class="w-100 product-img">
-                        </div>
-                        <div>
-                            <span class="product-badge">${product.category}</span>
-                            <h3 class="mb-05">${product.name}</h3>
-                            <p class="text-sm mb-1">${product.description.substring(0, 80)}...</p>
-                            <div class="flex flex-between border-top">
-                                <div>
-                                    <h3 class="text-primary mb-0">₹${product.price}</h3>
-                                    <small class="text-muted">Stock: ${product.stock} units</small>
-                                </div>
-                                <button class="btn btn-danger" onclick="deleteProduct('${product._id}')">Delete</button>
-                            </div>
-                        </div>
-                    `;
-                    
+                    const imgWrapper = document.createElement('div');
+                    imgWrapper.className = 'w-100 mb-1 product-img-wrapper';
+                    const img = document.createElement('img');
+                    img.src = product.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
+                    img.alt = product.name || 'Product Image';
+                    img.className = 'w-100 product-img';
+                    imgWrapper.appendChild(img);
+                    card.appendChild(imgWrapper);
+
+                    const content = document.createElement('div');
+
+                    const badge = document.createElement('span');
+                    badge.className = 'product-badge';
+                    badge.textContent = product.category || 'Handicraft';
+                    content.appendChild(badge);
+
+                    const title = document.createElement('h3');
+                    title.className = 'mb-05';
+                    title.textContent = product.name || '';
+                    content.appendChild(title);
+
+                    const desc = document.createElement('p');
+                    desc.className = 'text-sm mb-1';
+                    const rawDesc = product.description || '';
+                    desc.textContent = rawDesc.length > 80 ? rawDesc.substring(0, 80) + '...' : rawDesc;
+                    content.appendChild(desc);
+
+                    const footer = document.createElement('div');
+                    footer.className = 'flex flex-between border-top';
+
+                    const priceBlock = document.createElement('div');
+                    const price = document.createElement('h3');
+                    price.className = 'text-primary mb-0';
+                    price.textContent = '₹' + (product.price || 0);
+                    const stock = document.createElement('small');
+                    stock.className = 'text-muted';
+                    stock.textContent = 'Stock: ' + (product.stock !== undefined ? product.stock : 0) + ' units';
+                    priceBlock.appendChild(price);
+                    priceBlock.appendChild(stock);
+                    footer.appendChild(priceBlock);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn btn-danger';
+                    delBtn.textContent = 'Delete';
+                    delBtn.addEventListener('click', () => deleteProduct(product._id));
+                    footer.appendChild(delBtn);
+
+                    content.appendChild(footer);
+                    card.appendChild(content);
+
                     productGrid.appendChild(card);
                 });
             } catch (error) {

@@ -532,13 +532,14 @@
             cGroup.className = 'form-group';
             const cLabel = document.createElement('label');
             cLabel.className = 'form-label';
-            cLabel.textContent = 'Comment (optional)';
+            cLabel.textContent = 'Comment *';
             const cArea = document.createElement('textarea');
             cArea.id = 'reviewComment';
             cArea.className = 'form-control';
             cArea.rows = 3;
             cArea.maxLength = 500;
-            cArea.placeholder = 'Share your experience with this product…';
+            cArea.required = true;
+            cArea.placeholder = 'Share your experience with this product… (required)';
             cGroup.appendChild(cLabel);
             cGroup.appendChild(cArea);
             formDiv.appendChild(cGroup);
@@ -558,6 +559,13 @@
             const rating  = parseInt(document.getElementById('ratingSelect').value);
             const comment = document.getElementById('reviewComment').value.trim();
             const msgEl   = document.getElementById('reviewMsg');
+
+            if (!comment) {
+                msgEl.style.color = '#ff4757';
+                msgEl.textContent = 'Please enter a review comment.';
+                msgEl.classList.remove('d-none');
+                return;
+            }
 
             btn.disabled = true;
             btn.textContent = 'Submitting…';

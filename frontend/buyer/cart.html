@@ -32,6 +32,9 @@
             <a href="marketplace.html" class="btn btn-primary mt-2">Browse Marketplace</a>
         </div>
 
+        <!-- Cart update notice -->
+        <div id="cartNotice" class="alert alert-info mb-1 d-none" style="background:#e8f4fd; color:#0c5460; border:1px solid #bee5eb; padding:0.75rem 1rem; border-radius:var(--border-radius);"></div>
+
         <!-- Cart content (items + checkout form) -->
         <div id="cartContent" class="grid-2 gap-2 d-none">
             <!-- Left: cart items -->
@@ -46,6 +49,7 @@
                         <span class="font-bold">Subtotal</span>
                         <span class="font-bold text-primary" id="subtotalEl">₹0</span>
                     </div>
+                    <p class="text-xs text-muted mt-05 mb-0">Final price is confirmed by the server</p>
                 </div>
             </div>
 
@@ -274,9 +278,63 @@
             }
         }
 
+        // ── Refresh cart prices and stock from server on open ─────
+        async function refreshCartFromServer() {
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('cart') || '[]'); } catch (e) {}
+            if (cart.length === 0) {
+                renderCart();
+                return;
+            }
+
+            const updatedCart = [];
+            let itemsChanged = false;
+            let removedCount = 0;
+
+            for (const item of cart) {
+                try {
+                    const product = await apiRequest('/products/' + item.productId);
+                    if (!product || product.stock === 0) {
+                        itemsChanged = true;
+                        removedCount++;
+                        continue; // Remove out-of-stock or deleted items
+                    }
+                    if (item.price !== product.price || item.name !== product.name || item.image !== product.image) {
+                        itemsChanged = true;
+                    }
+                    item.price = product.price;
+                    item.name = product.name;
+                    item.image = product.image || item.image;
+                    if (item.quantity > product.stock) {
+                        item.quantity = product.stock;
+                        itemsChanged = true;
+                    }
+                    updatedCart.push(item);
+                } catch (err) {
+                    // Product deleted or not found (404)
+                    itemsChanged = true;
+                    removedCount++;
+                }
+            }
+
+            if (itemsChanged) {
+                localStorage.setItem('cart', JSON.stringify(updatedCart));
+                const cartNotice = document.getElementById('cartNotice');
+                if (cartNotice) {
+                    if (removedCount > 0) {
+                        cartNotice.textContent = `${removedCount} item(s) in your cart are no longer available and were removed. Prices and stock have been refreshed.`;
+                    } else {
+                        cartNotice.textContent = 'Cart updated: prices and stock refreshed from the server.';
+                    }
+                    cartNotice.classList.remove('d-none');
+                }
+            }
+            renderCart();
+        }
+
         // Init
         prefillShipping();
-        renderCart();
+        refreshCartFromServer();
     </script>
 </body>
 </html>

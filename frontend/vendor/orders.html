@@ -227,6 +227,7 @@
             const btn     = e.currentTarget;
             const orderId = btn.dataset.orderId;
             const status  = btn.dataset.status;
+            const payment = btn.dataset.payment;
 
             if (status === 'Cancelled') {
                 if (!confirm('Cancel this order? Stock will be restored.')) return;
@@ -238,7 +239,11 @@
             errorEl.classList.add('d-none');
 
             try {
-                await apiRequest('/orders/' + orderId + '/status', 'PUT', { orderStatus: status });
+                const payload = { orderStatus: status };
+                if (payment) {
+                    payload.paymentStatus = payment;
+                }
+                await apiRequest('/orders/' + orderId + '/status', 'PUT', payload);
                 // Reload full list to reflect new status
                 loadOrders();
             } catch (err) {
