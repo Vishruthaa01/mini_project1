@@ -1,0 +1,48 @@
+{
+  "_note": "Hourly rate of ₹80 is an educational baseline placeholder matching the original prototype assumption. You must justify or adjust this rate in your academic report based on actual regional artisan minimum wage / skill level.",
+  "defaultHourlyRate": 80,
+  "defaultOverheadPercent": 0.15,
+  "tierMargins": {
+    "fair": 1.25,
+    "market": 1.60,
+    "premium": 2.20
+  },
+  "categoryOverrides": {
+    "Textiles & Handloom": {
+      "hourlyRate": 80,
+      "overheadPercent": 0.15
+    },
+    "Pottery & Clay Art": {
+      "hourlyRate": 80,
+      "overheadPercent": 0.15
+    },
+    "Woodcraft": {
+      "hourlyRate": 85,
+      "overheadPercent": 0.18
+    },
+    "Handmade Jewelry": {
+      "hourlyRate": 90,
+      "overheadPercent": 0.20
+    },
+    "Jewelry": {
+      "hourlyRate": 90,
+      "overheadPercent": 0.20
+    },
+    "Bamboo & Cane": {
+      "hourlyRate": 80,
+      "overheadPercent": 0.12
+    },
+    "Metal & Brass Work": {
+      "hourlyRate": 90,
+      "overheadPercent": 0.20
+    },
+    "Handmade Paintings": {
+      "hourlyRate": 85,
+      "overheadPercent": 0.15
+    },
+    "Other": {
+      "hourlyRate": 80,
+      "overheadPercent": 0.15
+    }
+  }
+}

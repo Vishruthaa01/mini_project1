@@ -29,42 +29,60 @@
             <div class="form-section">
                 <h3>1. Basic Information</h3>
 
+                <div class="bg-nav mb-2">
+                    <label class="form-label text-main font-bold">AI Voice & Text Catalog Assistant (Optional)</label>
+                    <br>
+                    <span class="help-text">Describe your product by speaking or typing roughly. We will automatically generate professional English and Hindi listings for you.</span>
+                    <textarea class="form-control mb-1" id="raw-description-input" rows="2" placeholder="e.g. लाल रेशमी साड़ी या Red silk saree with gold border..."></textarea>
+
+                    <div class="d-flex gap-1 flex-wrap align-center">
+                        <button type="button" id="mic-btn" class="btn btn-outline" onclick="toggleRecording()">🎤 Record Voice</button>
+                        <button type="button" onclick="enhanceTextWithAI()" id="enhance-text-btn" class="btn btn-secondary">✨ Generate Listing</button>
+                        <audio id="audio-playback" controls class="d-none h-40"></audio>
+                    </div>
+
+                    <div id="catalog-status" class="mt-1 d-none font-bold text-muted"></div>
+                    <div id="catalog-transcript-container" class="mt-1 p-1 bg-white border-rounded text-sm d-none">
+                        <strong>Transcribed Voice:</strong>
+                        <p class="mb-0 text-muted" id="catalog-transcript-text"></p>
+                    </div>
+                </div>
+
                 <div class="grid-2">
                     <div class="form-group">
-                        <label class="form-label">Product Title *</label>
-                        <input type="text" class="form-control" id="title" required placeholder="e.g. Handwoven Silk Saree">
+                        <label class="form-label">Product Title (English) *</label>
+                        <input type="text" class="form-control" id="title" required placeholder="e.g. Handwoven Silk Saree" maxlength="120">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Category *</label>
                         <select class="form-control" id="category" required>
                             <option value="">Select a Category...</option>
-                            <option value="Textiles & Handloom">Textiles & Handloom</option>
-                            <option value="Pottery & Clay Art">Pottery & Clay Art</option>
-                            <option value="Woodcraft">Woodcraft</option>
-                            <option value="Handmade Jewelry">Handmade Jewelry</option>
-                            <option value="Bamboo & Cane">Bamboo & Cane</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-group mt-1">
-                    <label class="form-label">Full Product Description *</label>
-                    <textarea class="form-control" id="desc" rows="4" required placeholder="Detail the craftsmanship, origin, and materials..."></textarea>
+                    <label class="form-label">Product Title (हिंदी शीर्षक)</label>
+                    <input type="text" class="form-control" id="titleHi" placeholder="उदा. हाथ से बुनी रेशमी साड़ी" maxlength="120">
                 </div>
 
-                <div class="bg-nav mb-2">
-                    <label class="form-label text-main font-bold">AI Catalog Assistant (Optional)</label>
-                    <br>
-                    <span class="help-text">Describe your product via text or voice, and we will write a professional title and description for you.</span>
-                    <textarea class="form-control mb-1" id="raw-description-input" rows="2" placeholder="e.g. Red silk saree with gold border..."></textarea>
-
-                    <div class="d-flex gap-1 flex-wrap align-center">
-                        <button type="button" id="mic-btn" class="btn btn-outline" onclick="toggleRecording()">Record Voice</button>
-                        <button type="button" onclick="enhanceTextWithAI()" id="enhance-text-btn" class="btn btn-secondary">Generate Description</button>
-                        <audio id="audio-playback" controls class="d-none h-40"></audio>
+                <div class="grid-2 mt-1">
+                    <div class="form-group">
+                        <label class="form-label">Full Product Description (English) *</label>
+                        <textarea class="form-control" id="desc" rows="4" required placeholder="Detail the craftsmanship, origin, and materials..." maxlength="1500"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hindi Description (हिंदी विवरण)</label>
+                        <textarea class="form-control" id="descriptionHi" rows="4" placeholder="कारीगरी, उत्पत्ति और सामग्री का विवरण..." maxlength="1500"></textarea>
                     </div>
                 </div>
+
+                <div class="form-group mt-1">
+                    <label class="form-label">Search Keywords / Tags (Comma separated, max 10)</label>
+                    <input type="text" class="form-control" id="keywords" placeholder="e.g. Handloom, Silk, Banarasi, Festive">
+                </div>
             </div>
+
 
             <div class="form-section">
                 <h3>2. Product Media</h3>
@@ -112,7 +130,9 @@
                             <input type="number" class="form-control mb-0" id="labor_hours" placeholder="e.g. 10" min="0">
                         </div>
                     </div>
-                    <button type="button" onclick="calculatePrice()" class="btn btn-secondary">Calculate Suggested Prices</button>
+                    <button type="button" id="calc-price-btn" onclick="calculatePrice()" class="btn btn-secondary">Calculate Suggested Prices</button>
+
+                    <div id="price-status" class="mt-1 d-none text-muted font-bold"></div>
 
                     <div id="price-tiers" class="grid-3 d-none mt-15">
                         <div class="tier-card" onclick="applyPrice(this, 'fair')">
@@ -130,6 +150,15 @@
                             <div class="price" id="tier-premium">₹0</div>
                             <button type="button" class="btn btn-outline w-100">Apply</button>
                         </div>
+                    </div>
+
+                    <div id="price-insights" class="d-none mt-1 bg-white p-1 border-rounded">
+                        <div class="d-flex align-center gap-05 mb-05 flex-wrap">
+                            <span class="badge" id="price-basis-badge"></span>
+                            <span class="text-sm text-muted font-bold" id="comparable-count-text"></span>
+                        </div>
+                        <p class="text-sm mb-05" id="price-explanation-en"></p>
+                        <p class="text-sm text-muted mb-0" id="price-explanation-hi"></p>
                     </div>
                 </div>
 
@@ -160,56 +189,145 @@
     <script>
         requireAuth('vendor', true);
 
+        async function loadCategories() {
+            try {
+                const categories = await apiRequest('/products/categories', 'GET');
+                const select = document.getElementById('category');
+                select.innerHTML = '';
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = 'Select a Category...';
+                select.appendChild(defaultOpt);
+                categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Failed to load categories:', err);
+            }
+        }
+        loadCategories();
+
         let mediaRecorder = null;
         let audioChunks = [];
+        let recordedAudioBlob = null;
 
         async function toggleRecording() {
             const btn = document.getElementById('mic-btn');
+            const statusEl = document.getElementById('catalog-status');
+
             if (mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.stop();
                 btn.classList.remove('recording-pulse');
-                btn.innerText = "Record Voice";
+                btn.textContent = "🎤 Record Voice";
+                statusEl.textContent = "Processing voice note...";
             } else {
                 try {
                     const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     mediaRecorder = new MediaRecorder(audioStream);
                     mediaRecorder.start();
                     audioChunks = [];
-                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.ondataavailable = e => {
+                        if (e.data && e.data.size > 0) audioChunks.push(e.data);
+                    };
                     mediaRecorder.onstop = () => {
                         audioStream.getTracks().forEach(track => track.stop());
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                         const player = document.getElementById('audio-playback');
-                        player.src = URL.createObjectURL(audioBlob);
+                        player.src = URL.createObjectURL(recordedAudioBlob);
                         player.classList.remove('d-none');
-                        enhanceTextWithAI(true);
+                        generateCatalogFromAI({ fromVoice: true });
                     };
                     btn.classList.add('recording-pulse');
-                    btn.innerText = "Stop Recording";
+                    btn.textContent = "⏹ Stop Recording";
+                    statusEl.textContent = "Listening to your voice note...";
+                    statusEl.classList.remove('d-none');
                 } catch (e) {
-                    alert('Microphone access denied.');
+                    alert('Microphone access denied or unavailable: ' + e.message);
                 }
             }
         }
 
-        function enhanceTextWithAI(fromVoice = false) {
+        async function generateCatalogFromAI({ fromVoice = false } = {}) {
             const rawText = document.getElementById('raw-description-input').value.trim();
-            if (!fromVoice && !rawText) return alert("Please type a rough description or record a voice note!");
+            if (!fromVoice && !rawText) {
+                return alert("Please type a rough description or record a voice note first!");
+            }
 
             const btn = document.getElementById('enhance-text-btn');
-            const origText = btn.innerText;
-            btn.innerText = "Generating...";
+            const statusEl = document.getElementById('catalog-status');
+            const transcriptBox = document.getElementById('catalog-transcript-container');
+            const transcriptText = document.getElementById('catalog-transcript-text');
+
             btn.disabled = true;
+            btn.textContent = "Writing your listing...";
+            statusEl.textContent = fromVoice 
+                ? "Listening to your voice note & writing your bilingual listing..." 
+                : "Writing your professional listing in English & Hindi...";
+            statusEl.classList.remove('d-none');
 
-            setTimeout(() => {
-                document.getElementById('title').value = "Premium Handcrafted " + (rawText.split(' ')[0] || "Artisan Product");
-                document.getElementById('desc').value = "A beautifully crafted piece featuring traditional artistry. " + rawText + " This unique item guarantees premium quality and exquisite attention to detail, perfect for adding elegance to any collection.";
-                document.getElementById('category').value = "Textiles & Handloom";
+            const token = localStorage.getItem('token');
+            const formData = new FormData();
+            if (rawText) {
+                formData.append('text', rawText);
+            }
+            if (fromVoice && recordedAudioBlob) {
+                formData.append('audio', recordedAudioBlob, 'voice-note.webm');
+            }
 
-                btn.innerText = origText;
+            try {
+                const response = await fetch('http://localhost:5000/api/ai/catalog', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Catalog generation failed');
+                }
+
+                // Show transcript if voice was transcribed
+                if (data.transcript) {
+                    transcriptText.textContent = data.transcript;
+                    transcriptBox.classList.remove('d-none');
+                }
+
+                // Populate English and Hindi fields
+                if (data.titleEn) document.getElementById('title').value = data.titleEn;
+                if (data.descriptionEn) document.getElementById('desc').value = data.descriptionEn;
+                if (data.titleHi) document.getElementById('titleHi').value = data.titleHi;
+                if (data.descriptionHi) document.getElementById('descriptionHi').value = data.descriptionHi;
+
+                // Populate category if valid
+                if (data.category) {
+                    const catSelect = document.getElementById('category');
+                    catSelect.value = data.category;
+                }
+
+                // Populate keywords
+                if (data.keywords && Array.isArray(data.keywords)) {
+                    document.getElementById('keywords').value = data.keywords.join(', ');
+                }
+
+                statusEl.textContent = "Listing draft ready! Review and edit your details below before publishing.";
+            } catch (err) {
+                alert("Catalog assistant error: " + err.message);
+                statusEl.textContent = "Catalog assistant error: " + err.message;
+            } finally {
                 btn.disabled = false;
-            }, 1500);
+                btn.textContent = "✨ Generate Listing";
+            }
         }
+
+        function enhanceTextWithAI() {
+            generateCatalogFromAI({ fromVoice: false });
+        }
+
 
         let stream = null;
         const video = document.getElementById('camera-stream');
@@ -232,7 +350,6 @@
             canvas.width = video.videoWidth || 640;
             canvas.height = video.videoHeight || 480;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            const rawBase64 = canvas.toDataURL('image/jpeg');
 
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -245,73 +362,173 @@
             document.getElementById('btn-start-cam').innerText = "Retake Photo";
             document.getElementById('btn-snap-cam').classList.add('d-none');
 
-            simulateAIEnhance(rawBase64);
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    uploadAndEnhanceImage(blob, 'camera-capture.jpg');
+                }
+            }, 'image/jpeg', 0.92);
         }
 
         function handleFileUpload(event) {
-            const file = event.target.files[0];
+            const file = event.target.files && event.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    simulateAIEnhance(e.target.result);
-                };
-                reader.readAsDataURL(file);
+                uploadAndEnhanceImage(file, file.name);
             }
+            // Reset input value so selecting the same file again triggers change event
+            event.target.value = '';
         }
 
-        function resizeImage(dataUrl, maxSize, callback) {
-            const img = new Image();
-            img.onload = () => {
-                const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-                const canvas = document.createElement('canvas');
-                canvas.width = Math.round(img.width * scale);
-                canvas.height = Math.round(img.height * scale);
-                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                callback(canvas.toDataURL('image/jpeg', 0.8));
-            };
-            img.src = dataUrl;
-        }
+        async function uploadAndEnhanceImage(fileOrBlob, filename = 'photo.jpg') {
+            const statusEl = document.getElementById('ai-status');
+            const imgEl = document.getElementById('enhanced-image-preview');
+            const hiddenInput = document.getElementById('prodImageBase64');
 
-        function simulateAIEnhance(base64) {
-            const status = document.getElementById('ai-status');
-            const img = document.getElementById('enhanced-image-preview');
+            statusEl.textContent = 'AI removing background & balancing studio lighting...';
+            statusEl.classList.remove('d-none');
+            imgEl.classList.add('d-none');
 
-            img.classList.add('d-none');
-            status.innerText = "AI Analyzing lighting & removing background...";
+            const token = localStorage.getItem('token');
+            if (!token) {
+                statusEl.textContent = 'Please log in as a vendor to upload images.';
+                alert('You must be logged in as a vendor to upload images. Please log in first.');
+                return;
+            }
 
-            resizeImage(base64, 800, (smallImage) => {
-                setTimeout(() => {
-                    status.innerText = "Studio Ready ✓";
-                    img.src = smallImage;
-                    img.classList.remove('d-none');
-                    img.classList.add('studio-filter');
-                    img.classList.add('bg-white');
+            const formData = new FormData();
+            formData.append('image', fileOrBlob, filename);
 
-                    document.getElementById('prodImageBase64').value = smallImage;
-                }, 1500);
-            });
+            try {
+                const apiEndpoint = (typeof API_BASE !== 'undefined' ? API_BASE : 'http://localhost:5000/api') + '/ai/enhance-image';
+                const response = await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: formData
+                });
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    data = { message: 'Server returned HTTP ' + response.status };
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.message || ('Server error ' + response.status));
+                }
+
+                if (data.enhanced) {
+                    statusEl.textContent = 'Studio Ready ✓ (Background removed, lighting balanced)';
+                } else {
+                    statusEl.textContent = 'Original image saved ✓ (AI background removal unavailable)';
+                }
+
+                imgEl.onload = () => {
+                    imgEl.classList.remove('d-none');
+                    imgEl.classList.add('bg-white');
+                };
+                imgEl.onerror = () => {
+                    statusEl.textContent = 'Image uploaded successfully, but preview could not be displayed.';
+                };
+                imgEl.src = data.imageUrl;
+
+                // Keep absolute URL in hidden input for publishing
+                hiddenInput.value = data.imageUrl;
+            } catch (err) {
+                statusEl.textContent = 'Enhancement error: ' + err.message;
+                alert('Image upload failed: ' + err.message);
+            }
         }
 
         let priceData = {};
 
-        function calculatePrice() {
+        async function calculatePrice() {
+            const category = document.getElementById('category').value;
             const material = parseFloat(document.getElementById('raw_material').value) || 0;
             const hours = parseFloat(document.getElementById('labor_hours').value) || 0;
+            const description = document.getElementById('desc').value.trim();
 
-            if (material === 0 && hours === 0) return alert('Enter material cost or labor hours');
+            if (!category) {
+                alert('Please select a category first so we can apply craft-specific rates and market data.');
+                document.getElementById('category').focus();
+                return;
+            }
 
-            const cost = material + (hours * 80);
+            if (material === 0 && hours === 0) {
+                return alert('Please enter raw material cost or labor hours');
+            }
 
-            priceData = {
-                fair: Math.round(cost * 1.25),
-                market: Math.round(cost * 1.6),
-                premium: Math.round(cost * 2.2)
-            };
+            const calcBtn = document.getElementById('calc-price-btn');
+            const statusEl = document.getElementById('price-status');
+            const tiersEl = document.getElementById('price-tiers');
+            const insightsEl = document.getElementById('price-insights');
 
-            document.getElementById('tier-fair').innerText = '₹' + priceData.fair;
-            document.getElementById('tier-market').innerText = '₹' + priceData.market;
-            document.getElementById('tier-premium').innerText = '₹' + priceData.premium;
-            document.getElementById('price-tiers').classList.remove('d-none');
+            calcBtn.disabled = true;
+            calcBtn.textContent = 'Calculating...';
+            statusEl.textContent = 'Analyzing material costs and market rates...';
+            statusEl.classList.remove('d-none');
+
+            try {
+                const data = await apiRequest('/ai/price-suggestion', 'POST', {
+                    category,
+                    rawMaterialsCost: material,
+                    laborHours: hours,
+                    description
+                });
+
+                priceData = {
+                    fair: data.fair,
+                    market: data.market,
+                    premium: data.premium
+                };
+
+                document.getElementById('tier-fair').textContent = '₹' + data.fair;
+                document.getElementById('tier-market').textContent = '₹' + data.market;
+                document.getElementById('tier-premium').textContent = '₹' + data.premium;
+
+                // Basis badge styling
+                const basisBadge = document.getElementById('price-basis-badge');
+                if (data.basis === 'cost+market') {
+                    basisBadge.textContent = 'Stage B: Market-Aware';
+                    basisBadge.className = 'badge badge-success';
+                } else if (data.basis === 'ml') {
+                    basisBadge.textContent = data.isSynthetic 
+                        ? 'Stage C: Machine Learning (SYNTHETIC BOOTSTRAP)' 
+                        : 'Stage C: Machine Learning';
+                    basisBadge.className = data.isSynthetic ? 'badge badge-warning' : 'badge badge-primary';
+                } else {
+                    basisBadge.textContent = 'Stage A: Cost-Plus Rule';
+                    basisBadge.className = 'badge badge-warning';
+                }
+
+                // Comparable items counter
+                const countText = document.getElementById('comparable-count-text');
+                if (data.basis === 'ml') {
+                    const maeVal = data.breakdown && data.breakdown.mlMetadata ? data.breakdown.mlMetadata.mae : '';
+                    countText.textContent = data.isSynthetic
+                        ? `(${data.comparableCount} synthetic samples, Cross-val MAE: ₹${maeVal})`
+                        : `(${data.comparableCount} real products trained, Cross-val MAE: ₹${maeVal})`;
+                } else {
+                    countText.textContent = data.comparableCount > 0 
+                        ? `(${data.comparableCount} comparable items analyzed)` 
+                        : '(No comparable items found)';
+                }
+
+                // Explanations (safely set via textContent)
+                document.getElementById('price-explanation-en').textContent = data.explanationEn || '';
+                document.getElementById('price-explanation-hi').textContent = data.explanationHi || '';
+
+                statusEl.classList.add('d-none');
+                tiersEl.classList.remove('d-none');
+                insightsEl.classList.remove('d-none');
+            } catch (err) {
+                alert('Price calculation error: ' + err.message);
+                statusEl.textContent = 'Calculation failed: ' + err.message;
+            } finally {
+                calcBtn.disabled = false;
+                calcBtn.textContent = 'Calculate Suggested Prices';
+            }
         }
 
         function applyPrice(cardElement, tier) {
@@ -333,12 +550,20 @@
             const rawCost = document.getElementById('raw_material').value;
             const hours = document.getElementById('labor_hours').value;
 
+            const keywordsRaw = document.getElementById('keywords').value;
+            const keywordsArray = keywordsRaw
+                ? keywordsRaw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 10)
+                : undefined;
+
             const newProduct = {
-                sku: document.getElementById('sku').value.trim(),
+                sku: document.getElementById('sku').value.trim() || undefined,
                 name: document.getElementById('title').value.trim(),
+                titleHi: document.getElementById('titleHi').value.trim() || undefined,
                 category: document.getElementById('category').value,
                 description: document.getElementById('desc').value.trim(),
-                image: document.getElementById('prodImageBase64').value,
+                descriptionHi: document.getElementById('descriptionHi').value.trim() || undefined,
+                keywords: keywordsArray,
+                image: document.getElementById('prodImageBase64').value || undefined,
                 price: Number(document.getElementById('final_price').value),
                 stock: Number(document.getElementById('stock').value),
                 rawMaterialsCost: rawCost ? Number(rawCost) : undefined,

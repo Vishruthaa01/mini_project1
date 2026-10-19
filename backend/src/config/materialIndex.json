@@ -1,0 +1,17 @@
+{
+  "lastUpdated": "2026-10-14",
+  "description": "Manually maintained reference prices (INR) for standard artisan raw materials to assist vendors with estimations. Not scraped.",
+  "materials": {
+    "Mulberry Silk Yarn (per kg)": 4500,
+    "Organic Cotton Yarn (per kg)": 380,
+    "Natural Terracotta Clay (per 10kg)": 250,
+    "Glazing Pigments (per 500g)": 600,
+    "Seasoned Sheesham Wood (per cubic ft)": 1800,
+    "Teak Wood Plank (per sq ft)": 450,
+    "Sterling Silver Wire 925 (per 10g)": 950,
+    "Brass Ingot / Sheet (per kg)": 620,
+    "Treated Bamboo Stems (bundle of 5)": 400,
+    "Natural Vegetable Dyes (set of 5 colors)": 750,
+    "Canvas Board 16x20 inch (pack of 2)": 350
+  }
+}

@@ -1,0 +1,136 @@
+# ==============================================================================
+# Environment Variables & Secrets (Keep .env.example templates tracked)
+# ==============================================================================
+.env
+.env.*
+.env.example
+*.env.example
+*.env
+*.pem
+*.key
+*.cert
+
+# ==============================================================================
+# Node.js & JavaScript (Backend & Frontend)
+# ==============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.eslintcache
+
+# ==============================================================================
+# Python (AI Microservice & Tooling)
+# ==============================================================================
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+
+# ==============================================================================
+# AI & Machine Learning Artifacts
+# ==============================================================================
+# Serialized model weights & pipelines
+*.joblib
+*.pkl
+*.pickle
+*.onnx
+*.pt
+*.pth
+*.bin
+*.h5
+*.model
+*.weights
+checkpoints/
+ai-service/models/*
+!ai-service/models/.gitkeep
+
+# Neural pre-trained weight caches (e.g., rembg u2net, huggingface)
+.u2net/
+.cache/
+
+# Datasets & Training Exports
+ai-service/data/*
+!ai-service/data/.gitkeep
+data/*
+!data/.gitkeep
+*.csv
+*.tsv
+*.jsonl
+
+# Temporary audio inputs for Speech-to-Text (STT)
+*.wav
+*.mp3
+*.webm
+*.ogg
+*.m4a
+*.flac
+
+# ==============================================================================
+# Uploads, Media & Runtime Storage
+# ==============================================================================
+uploads/
+*/uploads/
+storage/
+temp/
+tmp/
+*.tmp
+*.bak
+*.log
+logs/
+
+# ==============================================================================
+# Databases
+# ==============================================================================
+*.sqlite
+*.sqlite3
+*.db
+
+# ==============================================================================
+# Operating System Artifacts
+# ==============================================================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+
+# ==============================================================================
+# IDEs & Code Editors
+# ==============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project

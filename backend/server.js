@@ -7,12 +7,16 @@ const connectDB = require('./src/config/db');
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
+const path = require('path');
 const app = express();
 const mongoose = require('mongoose');
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
+
+// Serve uploaded media files statically (absolute URLs built by storage.js)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/api/health', (req, res) => {
     const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
@@ -29,6 +33,7 @@ app.use('/api/products', require('./src/routes/productRoutes'));
 app.use('/api/orders', require('./src/routes/orderRoutes'));
 app.use('/api/inquiries', require('./src/routes/inquiryRoutes'));
 app.use('/api/reviews', require('./src/routes/reviewRoutes'));
+app.use('/api/ai', require('./src/routes/aiRoutes'));
 
 // 404 handler for unknown /api routes
 app.use('/api', (req, res) => {

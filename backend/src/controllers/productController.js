@@ -148,12 +148,28 @@ exports.getVendorProducts = async (req, res) => {
 // @access  Private/Vendor
 exports.createProduct = async (req, res) => {
     try {
-        const { name, category, description, image, rawMaterialsCost, laborHours, price, stock, sku } = req.body;
+        const { 
+            name, 
+            category, 
+            description, 
+            titleHi, 
+            descriptionHi, 
+            keywords, 
+            image, 
+            rawMaterialsCost, 
+            laborHours, 
+            price, 
+            stock, 
+            sku 
+        } = req.body;
 
         const product = new Product({
             name,
             category,
             description,
+            titleHi,
+            descriptionHi,
+            keywords: Array.isArray(keywords) ? keywords.slice(0, 10) : undefined,
             image,
             rawMaterialsCost,
             laborHours,
@@ -197,11 +213,27 @@ exports.updateProduct = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this product' });
         }
 
-        const { name, category, description, image, rawMaterialsCost, laborHours, price, stock, sku } = req.body;
+        const { 
+            name, 
+            category, 
+            description, 
+            titleHi, 
+            descriptionHi, 
+            keywords, 
+            image, 
+            rawMaterialsCost, 
+            laborHours, 
+            price, 
+            stock, 
+            sku 
+        } = req.body;
 
         if (name !== undefined) product.name = name;
         if (category !== undefined) product.category = category;
         if (description !== undefined) product.description = description;
+        if (titleHi !== undefined) product.titleHi = titleHi;
+        if (descriptionHi !== undefined) product.descriptionHi = descriptionHi;
+        if (keywords !== undefined && Array.isArray(keywords)) product.keywords = keywords.slice(0, 10);
         if (image !== undefined) product.image = image;
         if (rawMaterialsCost !== undefined) product.rawMaterialsCost = rawMaterialsCost;
         if (laborHours !== undefined) product.laborHours = laborHours;

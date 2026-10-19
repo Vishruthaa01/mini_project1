@@ -31,6 +31,20 @@ const productSchema = new mongoose.Schema(
         type: String,
         required: true
     },
+    titleHi: {
+        type: String,
+        maxlength: 120,
+        trim: true
+    },
+    descriptionHi: {
+        type: String,
+        maxlength: 1500,
+        trim: true
+    },
+    keywords: {
+        type: [{ type: String, trim: true }],
+        validate: [val => !val || val.length <= 10, 'Keywords cannot exceed 10 items']
+    },
     image: {
         type: String
     },
