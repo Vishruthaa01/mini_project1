@@ -10,17 +10,45 @@
     <nav class="navbar">
         <a href="../index.html" class="brand">VendorConnect</a>
         <div class="navbar-nav">
-            <a href="vendor.html" class="btn btn-outline">Dashboard</a>
-            <a href="add-product.html" class="btn btn-primary">Add Products</a>
-            <a href="orders.html" class="btn btn-outline">Orders</a>
-            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="vendor.html" class="btn btn-primary">Dashboard</a>
+            <a href="add-product.html" class="btn btn-outline">Add Products</a>
+            <a href="orders.html" class="btn btn-outline">
+                Orders <span id="pendingOrdersNavBadge" class="cart-badge d-none">0</span>
+            </a>
+            <a href="inquiries.html" class="btn btn-outline">
+                Inquiries <span id="openInquiriesNavBadge" class="cart-badge d-none">0</span>
+            </a>
             <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
             <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
         </div>
     </nav>
 
     <div class="container">
-        <div class="flex" class="flex-between align-center mb-2">
+        <!-- Dashboard Summary Metrics -->
+        <div class="grid-4 mb-2" id="vendorSummaryGrid">
+            <div class="card p-1">
+                <p class="text-xs text-muted font-bold mb-05">TOTAL PRODUCTS</p>
+                <h2 class="mb-0 text-primary" id="metricTotalProducts">0</h2>
+                <small class="text-muted">Listed in your shop</small>
+            </div>
+            <div class="card p-1">
+                <p class="text-xs text-muted font-bold mb-05">LOW STOCK (≤ 3)</p>
+                <h2 class="mb-0" id="metricLowStock" style="color:#d9534f;">0</h2>
+                <small class="text-muted">Needs replenishment</small>
+            </div>
+            <div class="card p-1">
+                <p class="text-xs text-muted font-bold mb-05">PENDING ORDERS</p>
+                <h2 class="mb-0" id="metricPendingOrders" style="color:#e67e22;">0</h2>
+                <small class="text-muted">Placed / Confirmed / Processing</small>
+            </div>
+            <div class="card p-1">
+                <p class="text-xs text-muted font-bold mb-05">OPEN INQUIRIES</p>
+                <h2 class="mb-0" id="metricOpenInquiries" style="color:#3498db;">0</h2>
+                <small class="text-muted">Awaiting your response</small>
+            </div>
+        </div>
+
+        <div class="flex flex-between align-center mb-2">
             <div>
                 <h2 class="mb-05">Product Listing</h2>
                 <p class="mb-0">Manage your product inventory and catalog</p>
@@ -28,13 +56,13 @@
             <a href="add-product.html" class="btn btn-primary">+ Add Product</a>
         </div>
 
-        <div id="emptyState" class="card text-center" class="p-4">
+        <div id="emptyState" class="card text-center p-4 d-none">
             <h3 class="text-primary">No products listed yet</h3>
             <p>Click "Add Products" to create your first product listing.</p>
             <a href="add-product.html" class="btn btn-primary mt-2">Add Products</a>
         </div>
 
-        <div id="productGrid" class="grid" class="d-none">
+        <div id="productGrid" class="grid d-none">
         </div>
     </div>
 
@@ -43,16 +71,51 @@
         document.addEventListener('DOMContentLoaded', () => {
             const user = requireAuth('vendor', true);
             if (!user) return;
-            loadVendorProducts();
+            loadVendorDashboard();
         });
 
-        async function loadVendorProducts() {
+        async function loadVendorDashboard() {
             const emptyState = document.getElementById('emptyState');
             const productGrid = document.getElementById('productGrid');
 
             try {
-                const storedProducts = await apiRequest('/products/vendor', 'GET');
-                if (storedProducts.length === 0) {
+                // Fetch products, orders, and inquiries in parallel for dashboard summary metrics
+                const [storedProducts, orders, inquiries] = await Promise.all([
+                    apiRequest('/products/vendor', 'GET'),
+                    apiRequest('/orders/vendor', 'GET').catch(() => []),
+                    apiRequest('/inquiries/vendor', 'GET').catch(() => [])
+                ]);
+
+                // 1. Calculate and update summary metrics
+                const totalCount = storedProducts.length;
+                const lowStockCount = storedProducts.filter(p => (p.stock !== undefined ? p.stock : 0) <= 3).length;
+                const pendingOrders = (orders || []).filter(o => ['Placed', 'Confirmed', 'Processing'].includes(o.orderStatus));
+                const openInquiries = (inquiries || []).filter(i => i.status === 'Open' || !i.vendorReply);
+
+                document.getElementById('metricTotalProducts').textContent = totalCount;
+                document.getElementById('metricLowStock').textContent = lowStockCount;
+                document.getElementById('metricPendingOrders').textContent = pendingOrders.length;
+                document.getElementById('metricOpenInquiries').textContent = openInquiries.length;
+
+                // 2. Update navbar badges
+                const pendingBadge = document.getElementById('pendingOrdersNavBadge');
+                if (pendingOrders.length > 0) {
+                    pendingBadge.textContent = pendingOrders.length;
+                    pendingBadge.classList.remove('d-none');
+                } else {
+                    pendingBadge.classList.add('d-none');
+                }
+
+                const inquiryBadge = document.getElementById('openInquiriesNavBadge');
+                if (openInquiries.length > 0) {
+                    inquiryBadge.textContent = openInquiries.length;
+                    inquiryBadge.classList.remove('d-none');
+                } else {
+                    inquiryBadge.classList.add('d-none');
+                }
+
+                // 3. Render product cards
+                if (totalCount === 0) {
                     emptyState.classList.remove('d-none');
                     productGrid.classList.add('d-none');
                     return;
@@ -94,33 +157,97 @@
                     content.appendChild(desc);
 
                     const footer = document.createElement('div');
-                    footer.className = 'flex flex-between border-top';
+                    footer.className = 'border-top pt-1';
 
-                    const priceBlock = document.createElement('div');
+                    // Price & Stock status row
+                    const priceStockRow = document.createElement('div');
+                    priceStockRow.className = 'flex flex-between align-center mb-05';
+
                     const price = document.createElement('h3');
                     price.className = 'text-primary mb-0';
                     price.textContent = '₹' + (product.price || 0);
-                    const stock = document.createElement('small');
-                    stock.className = 'text-muted';
-                    stock.textContent = 'Stock: ' + (product.stock !== undefined ? product.stock : 0) + ' units';
-                    priceBlock.appendChild(price);
-                    priceBlock.appendChild(stock);
-                    footer.appendChild(priceBlock);
+                    priceStockRow.appendChild(price);
+
+                    const stockBadge = document.createElement('span');
+                    const stockVal = product.stock !== undefined ? product.stock : 0;
+                    if (stockVal <= 3) {
+                        stockBadge.className = 'badge';
+                        stockBadge.style.backgroundColor = '#f8d7da';
+                        stockBadge.style.color = '#721c24';
+                        stockBadge.textContent = stockVal === 0 ? 'Out of stock' : `Low stock: ${stockVal}`;
+                    } else {
+                        stockBadge.className = 'text-sm text-muted';
+                        stockBadge.textContent = `Stock: ${stockVal} units`;
+                    }
+                    priceStockRow.appendChild(stockBadge);
+                    footer.appendChild(priceStockRow);
+
+                    // Quick stock update control
+                    const quickStockRow = document.createElement('div');
+                    quickStockRow.className = 'flex align-center gap-05 mb-1';
+
+                    const stockLabel = document.createElement('span');
+                    stockLabel.className = 'text-xs text-muted font-bold';
+                    stockLabel.textContent = 'Stock:';
+                    quickStockRow.appendChild(stockLabel);
+
+                    const stockInput = document.createElement('input');
+                    stockInput.type = 'number';
+                    stockInput.min = '0';
+                    stockInput.value = stockVal;
+                    stockInput.className = 'form-control';
+                    stockInput.style.cssText = 'width:70px;padding:3px 6px;height:30px;font-size:0.85rem;';
+                    quickStockRow.appendChild(stockInput);
+
+                    const saveStockBtn = document.createElement('button');
+                    saveStockBtn.className = 'btn btn-outline';
+                    saveStockBtn.style.cssText = 'padding:3px 10px;height:30px;font-size:0.8rem;';
+                    saveStockBtn.textContent = 'Update';
+                    saveStockBtn.addEventListener('click', async () => {
+                        const newStock = parseInt(stockInput.value, 10);
+                        if (isNaN(newStock) || newStock < 0) {
+                            alert('Please enter a valid stock quantity (0 or greater).');
+                            return;
+                        }
+                        saveStockBtn.disabled = true;
+                        saveStockBtn.textContent = '...';
+                        try {
+                            await apiRequest('/products/' + product._id, 'PUT', { stock: newStock });
+                            loadVendorDashboard();
+                        } catch (err) {
+                            alert('Failed to update stock: ' + err.message);
+                            saveStockBtn.disabled = false;
+                            saveStockBtn.textContent = 'Update';
+                        }
+                    });
+                    quickStockRow.appendChild(saveStockBtn);
+                    footer.appendChild(quickStockRow);
+
+                    // Actions row (Edit + Delete)
+                    const actionsRow = document.createElement('div');
+                    actionsRow.className = 'flex flex-between align-center';
+
+                    const editBtn = document.createElement('a');
+                    editBtn.href = `add-product.html?id=${product._id}`;
+                    editBtn.className = 'btn btn-outline';
+                    editBtn.textContent = '✏ Edit';
+                    actionsRow.appendChild(editBtn);
 
                     const delBtn = document.createElement('button');
                     delBtn.className = 'btn btn-danger';
                     delBtn.textContent = 'Delete';
                     delBtn.addEventListener('click', () => deleteProduct(product._id));
-                    footer.appendChild(delBtn);
+                    actionsRow.appendChild(delBtn);
 
+                    footer.appendChild(actionsRow);
                     content.appendChild(footer);
                     card.appendChild(content);
 
                     productGrid.appendChild(card);
                 });
             } catch (error) {
-                console.error(error);
-                alert('Error loading products');
+                console.error('Error loading dashboard:', error);
+                alert('Error loading dashboard data');
             }
         }
 
@@ -128,9 +255,9 @@
             if (!confirm('Are you sure you want to delete this product?')) return;
             try {
                 await apiRequest('/products/' + productId, 'DELETE');
-                loadVendorProducts();
+                loadVendorDashboard();
             } catch (error) {
-                alert('Error deleting product');
+                alert('Error deleting product: ' + error.message);
             }
         }
     </script>

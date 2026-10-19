@@ -12,8 +12,12 @@
         <div class="navbar-nav">
             <a href="vendor.html" class="btn btn-outline">Dashboard</a>
             <a href="add-product.html" class="btn btn-outline">Add Products</a>
-            <a href="orders.html" class="btn btn-outline">Orders</a>
-            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="orders.html" class="btn btn-outline">
+                Orders <span id="pendingOrdersNavBadge" class="cart-badge d-none">0</span>
+            </a>
+            <a href="inquiries.html" class="btn btn-outline">
+                Inquiries <span id="openInquiriesNavBadge" class="cart-badge d-none">0</span>
+            </a>
             <a href="vendor-profile.html" class="btn btn-primary">Profile</a>
             <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
         </div>
@@ -79,6 +83,33 @@
                 </div>
             </form>
         </div>
+
+        <!-- Change Password Card (available for logged-in users) -->
+        <div class="card mt-2" id="changePasswordCard">
+            <h3 class="mb-05">Change Password</h3>
+            <p class="text-sm text-muted mb-1">Update your account password</p>
+
+            <div id="passwordMsg" class="d-none p-1 mb-1" style="border-radius:var(--border-radius);"></div>
+
+            <form onsubmit="handleChangePassword(event)">
+                <div class="form-group">
+                    <label class="form-label" for="currentPassword">Current Password *</label>
+                    <input type="password" id="currentPassword" class="form-control" required placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="newPassword">New Password * (min 6 characters)</label>
+                    <input type="password" id="newPassword" class="form-control" required minlength="6" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">Confirm New Password *</label>
+                    <input type="password" id="confirmPassword" class="form-control" required minlength="6" placeholder="Re-enter new password">
+                </div>
+                <div class="text-right">
+                    <button type="submit" id="changePasswordBtn" class="btn btn-secondary">Update Password</button>
+                </div>
+            </form>
+            <p class="text-xs text-muted mt-1 mb-0">Note: Email-based password reset is not currently available (future work).</p>
+        </div>
     </div>
     <script src="../js/api.js"></script>
     <script>
@@ -102,6 +133,9 @@
                 document.getElementById('profileSubheading').innerText = 'Please complete your store details to activate your account';
                 document.getElementById('saveProfileBtn').innerText = 'Complete Setup & Open Dashboard';
                 document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('changePasswordCard').style.display = 'none';
+            } else {
+                updateVendorNavBadges();
             }
 
             loadProfile(currentUser);
@@ -161,6 +195,50 @@
                 alert('Error updating profile: ' + error.message);
                 saveBtn.disabled = false;
                 saveBtn.innerText = originalText;
+            }
+        }
+
+        async function handleChangePassword(event) {
+            event.preventDefault();
+            const msgEl = document.getElementById('passwordMsg');
+            const btn = document.getElementById('changePasswordBtn');
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            msgEl.className = 'd-none';
+
+            if (newPassword !== confirmPassword) {
+                msgEl.className = 'p-1 mb-1';
+                msgEl.style.background = '#f8d7da';
+                msgEl.style.color = '#721c24';
+                msgEl.style.border = '1px solid #f5c6cb';
+                msgEl.textContent = 'New passwords do not match.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Updating...';
+
+            try {
+                const res = await apiRequest('/auth/change-password', 'PUT', { currentPassword, newPassword });
+                msgEl.className = 'p-1 mb-1';
+                msgEl.style.background = '#d4edda';
+                msgEl.style.color = '#155724';
+                msgEl.style.border = '1px solid #c3e6cb';
+                msgEl.textContent = res.message || 'Password changed successfully!';
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+            } catch (err) {
+                msgEl.className = 'p-1 mb-1';
+                msgEl.style.background = '#f8d7da';
+                msgEl.style.color = '#721c24';
+                msgEl.style.border = '1px solid #f5c6cb';
+                msgEl.textContent = err.message || 'Failed to update password';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Update Password';
             }
         }
     </script>

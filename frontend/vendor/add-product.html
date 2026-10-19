@@ -12,8 +12,12 @@
         <div class="navbar-nav">
             <a href="vendor.html" class="btn btn-outline">Dashboard</a>
             <a href="add-product.html" class="btn btn-primary">Add Products</a>
-            <a href="orders.html" class="btn btn-outline">Orders</a>
-            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="orders.html" class="btn btn-outline">
+                Orders <span id="pendingOrdersNavBadge" class="cart-badge d-none">0</span>
+            </a>
+            <a href="inquiries.html" class="btn btn-outline">
+                Inquiries <span id="openInquiriesNavBadge" class="cart-badge d-none">0</span>
+            </a>
             <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
             <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
         </div>
@@ -21,8 +25,8 @@
 
     <div class="container">
         <div class="text-center mb-2">
-            <h2>Create New Listing</h2>
-            <p>Fill in the product details manually or use our AI assistants to speed up the process.</p>
+            <h2 id="pageTitle">Create New Listing</h2>
+            <p id="pageSubtitle">Fill in the product details manually or use our AI assistants to speed up the process.</p>
         </div>
 
         <form id="addProductForm" onsubmit="handlePublishProduct(event)">
@@ -189,6 +193,9 @@
     <script>
         requireAuth('vendor', true);
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId = urlParams.get('id');
+
         async function loadCategories() {
             try {
                 const categories = await apiRequest('/products/categories', 'GET');
@@ -208,7 +215,45 @@
                 console.error('Failed to load categories:', err);
             }
         }
-        loadCategories();
+
+        async function loadProductForEdit(id) {
+            try {
+                const product = await apiRequest('/products/' + id, 'GET');
+                document.getElementById('sku').value = product.sku || '';
+                document.getElementById('title').value = product.name || '';
+                document.getElementById('titleHi').value = product.titleHi || '';
+                document.getElementById('category').value = product.category || '';
+                document.getElementById('desc').value = product.description || '';
+                document.getElementById('descriptionHi').value = product.descriptionHi || '';
+                document.getElementById('keywords').value = (product.keywords || []).join(', ');
+                document.getElementById('final_price').value = product.price || '';
+                document.getElementById('stock').value = product.stock !== undefined ? product.stock : 1;
+                document.getElementById('raw_material').value = product.rawMaterialsCost || '';
+                document.getElementById('labor_hours').value = product.laborHours || '';
+                if (product.image) {
+                    document.getElementById('prodImageBase64').value = product.image;
+                    const preview = document.getElementById('enhanced-image-preview');
+                    preview.src = product.image;
+                    preview.classList.remove('d-none');
+                    document.getElementById('ai-status').textContent = 'Current Product Image';
+                }
+            } catch (err) {
+                alert('Failed to load product details: ' + err.message);
+                window.location.href = 'vendor.html';
+            }
+        }
+
+        async function initPage() {
+            updateVendorNavBadges();
+            await loadCategories();
+            if (editId) {
+                document.getElementById('pageTitle').textContent = 'Edit Product Listing';
+                document.getElementById('pageSubtitle').textContent = 'Update your handicraft details, pricing tiers, and inventory.';
+                document.getElementById('publish-btn').innerText = 'Save Product Changes';
+                await loadProductForEdit(editId);
+            }
+        }
+        initPage();
 
         let mediaRecorder = null;
         let audioChunks = [];
@@ -571,15 +616,20 @@
             };
 
             publishBtn.disabled = true;
-            publishBtn.innerText = 'Publishing...';
+            publishBtn.innerText = editId ? 'Updating...' : 'Publishing...';
 
             try {
-                await apiRequest('/products', 'POST', newProduct);
+                if (editId) {
+                    await apiRequest('/products/' + editId, 'PUT', newProduct);
+                    alert('Product updated successfully!');
+                } else {
+                    await apiRequest('/products', 'POST', newProduct);
+                }
                 window.location.href = 'vendor.html';
             } catch (error) {
-                alert('Error adding product: ' + error.message);
+                alert('Error saving product: ' + error.message);
                 publishBtn.disabled = false;
-                publishBtn.innerText = 'Publish Product Catalog';
+                publishBtn.innerText = editId ? 'Save Product Changes' : 'Publish Product Catalog';
             }
         }
     </script>

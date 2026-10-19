@@ -12,9 +12,13 @@
         <a href="../index.html" class="brand">VendorConnect</a>
         <div class="navbar-nav">
             <a href="vendor.html" class="btn btn-outline">Dashboard</a>
-            <a href="add-product.html" class="btn btn-primary">Add Products</a>
-            <a href="orders.html" class="btn btn-outline">Orders</a>
-            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="add-product.html" class="btn btn-outline">Add Products</a>
+            <a href="orders.html" class="btn btn-outline">
+                Orders <span id="pendingOrdersNavBadge" class="cart-badge d-none">0</span>
+            </a>
+            <a href="inquiries.html" class="btn btn-primary">
+                Inquiries <span id="openInquiriesNavBadge" class="cart-badge d-none">0</span>
+            </a>
             <a href="vendor-profile.html" class="btn btn-outline">Profile</a>
             <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
         </div>
@@ -168,6 +172,7 @@
             try {
                 await apiRequest('/inquiries/' + inqId + '/reply', 'PUT', { reply });
                 btn.textContent = 'Reply Sent ✓';
+                updateVendorNavBadges();
                 // Update button label to "Update Reply" going forward
                 setTimeout(() => {
                     btn.disabled = false;
@@ -182,6 +187,7 @@
         }
 
         loadInquiries();
+        updateVendorNavBadges();
     </script>
 </body>
 </html>

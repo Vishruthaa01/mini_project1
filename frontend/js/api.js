@@ -105,3 +105,43 @@ function requireAuth(allowedRole = null, requireProfile = true) {
 
     return user;
 }
+
+// Automatically populates notification badges for pending orders and open inquiries in vendor navbar
+async function updateVendorNavBadges() {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    try {
+        const user = JSON.parse(userStr);
+        if (user.role !== 'vendor') return;
+
+        const [orders, inquiries] = await Promise.all([
+            apiRequest('/orders/vendor', 'GET').catch(() => []),
+            apiRequest('/inquiries/vendor', 'GET').catch(() => [])
+        ]);
+
+        const pendingCount = (orders || []).filter(o => ['Placed', 'Confirmed', 'Processing'].includes(o.orderStatus)).length;
+        const openCount = (inquiries || []).filter(i => i.status === 'Open' || !i.vendorReply).length;
+
+        const pendingBadge = document.getElementById('pendingOrdersNavBadge');
+        if (pendingBadge) {
+            if (pendingCount > 0) {
+                pendingBadge.textContent = pendingCount;
+                pendingBadge.classList.remove('d-none');
+            } else {
+                pendingBadge.classList.add('d-none');
+            }
+        }
+
+        const inquiryBadge = document.getElementById('openInquiriesNavBadge');
+        if (inquiryBadge) {
+            if (openCount > 0) {
+                inquiryBadge.textContent = openCount;
+                inquiryBadge.classList.remove('d-none');
+            } else {
+                inquiryBadge.classList.add('d-none');
+            }
+        }
+    } catch (e) {
+        // Silently tolerate if offline or network fails
+    }
+}
