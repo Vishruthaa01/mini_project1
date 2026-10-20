@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="brand">VendorConnect <span class="badge badge-warning text-xs">ADMIN</span></a>
+        <div class="navbar-nav">
+            <a href="index.html" class="btn btn-primary">Dashboard</a>
+            <a href="users.html" class="btn btn-outline">Users</a>
+            <a href="products.html" class="btn btn-outline">Products</a>
+            <a href="orders.html" class="btn btn-outline">Orders</a>
+            <a href="reports.html" class="btn btn-outline">
+                Reports <span id="openReportsBadge" class="cart-badge d-none">0</span>
+            </a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container mt-2">
+        <div class="d-flex justify-between align-center mb-2 flex-wrap gap-1">
+            <div>
+                <h1 class="mb-05">Platform Governance & Overview</h1>
+                <p class="text-muted mb-0">Platform health metrics, artisan catalog moderation, and user oversight</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="loadDashboard()">🔄 Refresh Metrics</button>
+            </div>
+        </div>
+
+        <div id="stateMsg" class="state-msg">Loading platform statistics…</div>
+
+        <div id="dashboardContent" class="d-none">
+            <!-- 5 Key Summary Metric Tiles -->
+            <div class="grid-4 mb-2">
+                <div class="card p-1">
+                    <p class="text-xs text-muted font-bold mb-05">TOTAL USERS</p>
+                    <h2 class="text-primary mb-05" id="statTotalUsers">0</h2>
+                    <p class="text-xs text-muted mb-0">
+                        <span id="statBuyers">0</span> Buyers · <span id="statVendors">0</span> Vendors · <span id="statAdmins">0</span> Admins
+                    </p>
+                </div>
+
+                <div class="card p-1">
+                    <p class="text-xs text-muted font-bold mb-05">TOTAL PRODUCTS</p>
+                    <h2 class="text-primary mb-05" id="statTotalProducts">0</h2>
+                    <p class="text-xs text-muted mb-0">
+                        <span id="statActiveProducts" class="text-success font-bold">0</span> Active · <span id="statHiddenProducts" class="text-danger font-bold">0</span> Hidden
+                    </p>
+                </div>
+
+                <div class="card p-1">
+                    <p class="text-xs text-muted font-bold mb-05">DELIVERED REVENUE</p>
+                    <h2 class="text-primary mb-05" id="statRevenue">₹0</h2>
+                    <p class="text-xs text-muted mb-0">From fulfilled artisan orders</p>
+                </div>
+
+                <div class="card p-1">
+                    <p class="text-xs text-muted font-bold mb-05">MODERATION REPORTS</p>
+                    <h2 class="mb-05" id="statOpenReports">0</h2>
+                    <p class="text-xs text-muted mb-0" id="statReportsLabel">Open pending review</p>
+                </div>
+            </div>
+
+            <!-- Orders Pipeline Overview -->
+            <div class="card mb-2">
+                <h3 class="mb-1">Orders Pipeline Breakdown</h3>
+                <div class="d-flex justify-between flex-wrap gap-1" id="ordersPipelineContainer">
+                    <!-- Populated dynamically via DOM -->
+                </div>
+            </div>
+
+            <!-- Quick Access Governance Modules -->
+            <div class="grid-2 gap-15">
+                <div class="card">
+                    <h3>👥 User Accounts Management</h3>
+                    <p class="text-sm text-muted">Inspect registered buyers, artisans, and administrators. Search by email or phone, review business details, and activate or deactivate suspended accounts.</p>
+                    <a href="users.html" class="btn btn-outline btn-sm">Manage Users →</a>
+                </div>
+
+                <div class="card">
+                    <h3>🏺 Catalog Moderation</h3>
+                    <p class="text-sm text-muted">Review all handicraft listings across categories. Instantly hide counterfeit or inappropriate items from public buyer storefronts.</p>
+                    <a href="products.html" class="btn btn-outline btn-sm">Moderate Products →</a>
+                </div>
+
+                <div class="card">
+                    <h3>📦 Master Orders Overview</h3>
+                    <p class="text-sm text-muted">View live order transactions across all vendors and buyers, check shipment and delivery statuses, and audit payment methods.</p>
+                    <a href="orders.html" class="btn btn-outline btn-sm">View Orders →</a>
+                </div>
+
+                <div class="card">
+                    <h3>🚩 Moderation Reports Queue</h3>
+                    <p class="text-sm text-muted">Process complaints filed by buyers and artisans regarding products or suspicious accounts. Add administrative resolution notes.</p>
+                    <a href="reports.html" class="btn btn-outline btn-sm">Open Reports Queue →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const adminUser = requireAuth('admin', false);
+        if (!adminUser) throw new Error('redirect');
+
+        async function loadDashboard() {
+            const stateMsg = document.getElementById('stateMsg');
+            const content = document.getElementById('dashboardContent');
+
+            stateMsg.textContent = 'Loading platform statistics…';
+            stateMsg.classList.remove('d-none');
+            content.classList.add('d-none');
+
+            try {
+                const data = await apiRequest('/admin/dashboard', 'GET');
+
+                // Update Users tile
+                document.getElementById('statTotalUsers').textContent = data.users.total;
+                document.getElementById('statBuyers').textContent = data.users.buyer;
+                document.getElementById('statVendors').textContent = data.users.vendor;
+                document.getElementById('statAdmins').textContent = data.users.admin;
+
+                // Update Products tile
+                document.getElementById('statTotalProducts').textContent = data.products.total;
+                document.getElementById('statActiveProducts').textContent = data.products.active;
+                document.getElementById('statHiddenProducts').textContent = data.products.hidden;
+
+                // Update Revenue tile
+                document.getElementById('statRevenue').textContent = '₹' + Number(data.revenue || 0).toLocaleString('en-IN');
+
+                // Update Reports tile & badge
+                const openReports = data.openReports || 0;
+                const reportsEl = document.getElementById('statOpenReports');
+                reportsEl.textContent = openReports;
+                if (openReports > 0) {
+                    reportsEl.className = 'text-danger mb-05 font-bold';
+                    document.getElementById('openReportsBadge').textContent = openReports;
+                    document.getElementById('openReportsBadge').classList.remove('d-none');
+                } else {
+                    reportsEl.className = 'text-success mb-05 font-bold';
+                    document.getElementById('openReportsBadge').classList.add('d-none');
+                }
+
+                // Render orders pipeline
+                renderOrdersPipeline(data.orders);
+
+                stateMsg.classList.add('d-none');
+                content.classList.remove('d-none');
+            } catch (err) {
+                stateMsg.textContent = 'Failed to load admin metrics: ' + err.message;
+            }
+        }
+
+        function renderOrdersPipeline(orders) {
+            const container = document.getElementById('ordersPipelineContainer');
+            container.innerHTML = '';
+
+            const statuses = [
+                { key: 'Placed', label: 'Placed', color: 'badge-placed' },
+                { key: 'Confirmed', label: 'Confirmed', color: 'badge-confirmed' },
+                { key: 'Processing', label: 'Processing', color: 'badge-processing' },
+                { key: 'Shipped', label: 'Shipped', color: 'badge-shipped' },
+                { key: 'Delivered', label: 'Delivered', color: 'badge-delivered' },
+                { key: 'Cancelled', label: 'Cancelled', color: 'badge-cancelled' }
+            ];
+
+            statuses.forEach(s => {
+                const box = document.createElement('div');
+                box.className = 'p-1 border-rounded bg-nav text-center flex-1';
+                box.style.minWidth = '110px';
+
+                const val = document.createElement('h3');
+                val.className = 'mb-05';
+                val.textContent = orders[s.key] || 0;
+                box.appendChild(val);
+
+                const tag = document.createElement('span');
+                tag.className = 'badge ' + s.color;
+                tag.textContent = s.label;
+                box.appendChild(tag);
+
+                container.appendChild(box);
+            });
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>

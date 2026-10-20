@@ -25,7 +25,8 @@ exports.getCategories = async (req, res) => {
 exports.getProducts = async (req, res) => {
     try {
         const { q, category, minPrice, maxPrice, inStock, sort, page, limit } = req.query;
-        const query = {};
+        // Hidden products never appear in public marketplace endpoints
+        const query = { isHidden: { $ne: true } };
 
         // Search in title and description with escaped regex
         if (q && q.trim()) {
@@ -121,6 +122,17 @@ exports.getProductById = async (req, res) => {
 
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });
+        }
+
+        // If product is hidden, only the owning vendor or an administrator may view it
+        if (product.isHidden) {
+            const isAuthorized = req.user && (
+                req.user.role === 'admin' ||
+                (product.vendor && req.user._id && product.vendor._id.toString() === req.user._id.toString())
+            );
+            if (!isAuthorized) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
         }
 
         return res.json(product);
@@ -240,6 +252,7 @@ exports.updateProduct = async (req, res) => {
         if (price !== undefined) product.price = price;
         if (stock !== undefined) product.stock = stock;
         if (sku !== undefined) product.sku = sku;
+        if (req.body.isHidden !== undefined) product.isHidden = Boolean(req.body.isHidden);
 
         const updatedProduct = await product.save();
         return res.json(updatedProduct);
@@ -277,6 +290,73 @@ exports.deleteProduct = async (req, res) => {
         return res.json({ message: 'Product removed' });
     } catch (error) {
         console.error('Error deleting product:', error.message);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Export vendor listings in standard schema (CSV or JSON) mappable to GeM/ONDC
+// @route   GET /api/products/vendor/export
+// @access  Private/Vendor
+exports.exportVendorListings = async (req, res) => {
+    try {
+        const format = (req.query.format || 'json').toLowerCase();
+        const products = await Product.find({ vendor: req.user._id }).sort({ createdAt: -1 });
+
+        const formatted = products.map(p => ({
+            id: p._id.toString(),
+            sku: p.sku || `VC-${p._id.toString().slice(-6).toUpperCase()}`,
+            nameEn: p.name,
+            nameHi: p.titleHi || '',
+            category: p.category,
+            descriptionEn: p.description,
+            descriptionHi: p.descriptionHi || '',
+            priceInr: p.price,
+            stockQuantity: p.stock,
+            keywords: (p.keywords || []).join('; '),
+            imageUrl: p.image || '',
+            countryOfOrigin: 'India',
+            craftTradition: req.user.craftCategory || p.category,
+            artisanBusiness: req.user.businessName || req.user.name,
+            productionState: req.user.location || '',
+            status: p.isHidden ? 'Inactive' : 'Active',
+            lastUpdated: p.updatedAt ? p.updatedAt.toISOString() : new Date().toISOString()
+        }));
+
+        if (format === 'csv') {
+            const fields = [
+                'id', 'sku', 'nameEn', 'nameHi', 'category', 'descriptionEn',
+                'descriptionHi', 'priceInr', 'stockQuantity', 'keywords',
+                'imageUrl', 'countryOfOrigin', 'craftTradition', 'artisanBusiness',
+                'productionState', 'status', 'lastUpdated'
+            ];
+            
+            const escapeCsv = (val) => {
+                const str = val === undefined || val === null ? '' : String(val);
+                return `"${str.replace(/"/g, '""')}"`;
+            };
+
+            const headerLine = fields.join(',');
+            const rows = formatted.map(item => fields.map(f => escapeCsv(item[f])).join(','));
+            const csvContent = [headerLine, ...rows].join('\r\n');
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', 'attachment; filename="vendorconnect_catalog_export.csv"');
+            return res.send(csvContent);
+        }
+
+        return res.json({
+            meta: {
+                version: '1.0.0',
+                standard: 'VendorConnect Artisan Open Catalog Format (GeM/ONDC Mappable Draft)',
+                vendor: req.user.businessName || req.user.name,
+                itemCount: formatted.length,
+                generatedAt: new Date().toISOString(),
+                notice: 'Exported from VendorConnect. Real GeM/ONDC onboarding is future work and unintegrated.'
+            },
+            items: formatted
+        });
+    } catch (error) {
+        console.error('Export listings error:', error.message);
         return res.status(500).json({ message: 'Server error' });
     }
 };

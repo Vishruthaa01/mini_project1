@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users - Admin | VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="brand">VendorConnect <span class="badge badge-warning text-xs">ADMIN</span></a>
+        <div class="navbar-nav">
+            <a href="index.html" class="btn btn-outline">Dashboard</a>
+            <a href="users.html" class="btn btn-primary">Users</a>
+            <a href="products.html" class="btn btn-outline">Products</a>
+            <a href="orders.html" class="btn btn-outline">Orders</a>
+            <a href="reports.html" class="btn btn-outline">Reports</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container mt-2">
+        <div class="d-flex justify-between align-center mb-1 flex-wrap gap-1">
+            <div>
+                <h2>User Accounts Management</h2>
+                <p class="text-muted mb-0">Search, inspect, and moderate buyer, artisan, and administrator accounts</p>
+            </div>
+            <span class="text-sm font-bold">Total: <span id="totalUserCount">0</span> users</span>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="card p-1 mb-2">
+            <div class="d-flex gap-1 flex-wrap align-center">
+                <input type="text" id="searchInput" class="form-control mb-0" style="flex:2;min-width:200px;" placeholder="Search by name, email, phone, business…">
+                <select id="roleFilter" class="form-control mb-0" style="flex:1;min-width:130px;">
+                    <option value="">All Roles</option>
+                    <option value="buyer">Buyers</option>
+                    <option value="vendor">Artisan Vendors</option>
+                    <option value="admin">Administrators</option>
+                </select>
+                <select id="statusFilter" class="form-control mb-0" style="flex:1;min-width:130px;">
+                    <option value="">All Statuses</option>
+                    <option value="active">Active Only</option>
+                    <option value="inactive">Deactivated Only</option>
+                </select>
+                <button type="button" class="btn btn-primary" onclick="loadUsers(1)">Filter</button>
+            </div>
+        </div>
+
+        <div id="stateMsg" class="state-msg">Loading users…</div>
+
+        <div id="usersContainer" class="card d-none">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Contact</th>
+                            <th>Role</th>
+                            <th>Artisan Profile</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-between align-center p-1 border-top" id="paginationRow">
+                <span class="text-xs text-muted" id="pageInfoText">Page 1 of 1</span>
+                <div class="d-flex gap-05">
+                    <button type="button" id="prevPageBtn" class="btn btn-outline btn-sm" onclick="changePage(-1)">Previous</button>
+                    <button type="button" id="nextPageBtn" class="btn btn-outline btn-sm" onclick="changePage(1)">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const adminUser = requireAuth('admin', false);
+        if (!adminUser) throw new Error('redirect');
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        async function loadUsers(page = 1) {
+            currentPage = page;
+            const stateMsg = document.getElementById('stateMsg');
+            const container = document.getElementById('usersContainer');
+            const tbody = document.getElementById('usersTableBody');
+
+            stateMsg.textContent = 'Loading users…';
+            stateMsg.classList.remove('d-none');
+            container.classList.add('d-none');
+
+            const q = document.getElementById('searchInput').value.trim();
+            const role = document.getElementById('roleFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            const params = new URLSearchParams({ page: currentPage, limit: 15 });
+            if (q) params.set('q', q);
+            if (role) params.set('role', role);
+            if (status) params.set('status', status);
+
+            try {
+                const data = await apiRequest('/admin/users?' + params.toString(), 'GET');
+                
+                document.getElementById('totalUserCount').textContent = data.total;
+                totalPages = data.totalPages || 1;
+                document.getElementById('pageInfoText').textContent = `Page ${data.page} of ${totalPages} (${data.total} users)`;
+                document.getElementById('prevPageBtn').disabled = data.page <= 1;
+                document.getElementById('nextPageBtn').disabled = data.page >= totalPages;
+
+                tbody.innerHTML = '';
+
+                if (data.users.length === 0) {
+                    const row = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 7;
+                    td.className = 'text-center p-2 text-muted';
+                    td.textContent = 'No matching users found.';
+                    row.appendChild(td);
+                    tbody.appendChild(row);
+                } else {
+                    data.users.forEach(u => tbody.appendChild(buildUserRow(u)));
+                }
+
+                stateMsg.classList.add('d-none');
+                container.classList.remove('d-none');
+            } catch (err) {
+                stateMsg.textContent = 'Failed to load users: ' + err.message;
+            }
+        }
+
+        function buildUserRow(u) {
+            const tr = document.createElement('tr');
+
+            // 1. User Name & ID
+            const tdUser = document.createElement('td');
+            const nameEl = document.createElement('strong');
+            nameEl.textContent = u.name;
+            tdUser.appendChild(nameEl);
+            const idEl = document.createElement('div');
+            idEl.className = 'text-xs text-muted';
+            idEl.textContent = 'ID: ' + u._id.slice(-6);
+            tdUser.appendChild(idEl);
+            tr.appendChild(tdUser);
+
+            // 2. Contact
+            const tdContact = document.createElement('td');
+            const emailEl = document.createElement('div');
+            emailEl.textContent = u.email;
+            tdContact.appendChild(emailEl);
+            const phoneEl = document.createElement('div');
+            phoneEl.className = 'text-xs text-muted';
+            phoneEl.textContent = u.phone || 'No phone';
+            tdContact.appendChild(phoneEl);
+            tr.appendChild(tdContact);
+
+            // 3. Role badge
+            const tdRole = document.createElement('td');
+            const roleBadge = document.createElement('span');
+            roleBadge.className = 'badge ' + (u.role === 'admin' ? 'badge-warning' : u.role === 'vendor' ? 'badge-primary' : 'badge-outline');
+            roleBadge.textContent = u.role.toUpperCase();
+            tdRole.appendChild(roleBadge);
+            tr.appendChild(tdRole);
+
+            // 4. Artisan details (if vendor)
+            const tdArtisan = document.createElement('td');
+            if (u.role === 'vendor') {
+                const bName = document.createElement('div');
+                bName.className = 'font-bold text-xs';
+                bName.textContent = u.businessName || '—';
+                tdArtisan.appendChild(bName);
+                const craft = document.createElement('div');
+                craft.className = 'text-xs text-muted';
+                craft.textContent = (u.craftCategory || '') + (u.location ? ` (${u.location})` : '');
+                tdArtisan.appendChild(craft);
+            } else {
+                tdArtisan.textContent = '—';
+                tdArtisan.className = 'text-muted text-xs';
+            }
+            tr.appendChild(tdArtisan);
+
+            // 5. Status chip
+            const tdStatus = document.createElement('td');
+            const statusChip = document.createElement('span');
+            const isActive = u.isActive !== false;
+            statusChip.className = 'badge ' + (isActive ? 'badge-success' : 'badge-danger');
+            statusChip.textContent = isActive ? 'Active' : 'Deactivated';
+            tdStatus.appendChild(statusChip);
+            tr.appendChild(tdStatus);
+
+            // 6. Joined date
+            const tdDate = document.createElement('td');
+            tdDate.className = 'text-xs text-muted';
+            tdDate.textContent = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
+            tr.appendChild(tdDate);
+
+            // 7. Actions (Activate / Deactivate toggle)
+            const tdAction = document.createElement('td');
+            if (u._id === adminUser.id) {
+                const you = document.createElement('span');
+                you.className = 'text-xs text-muted italic';
+                you.textContent = '(Current Admin)';
+                tdAction.appendChild(you);
+            } else {
+                const toggleBtn = document.createElement('button');
+                toggleBtn.type = 'button';
+                toggleBtn.className = 'btn btn-sm ' + (isActive ? 'btn-danger' : 'btn-outline');
+                toggleBtn.textContent = isActive ? 'Deactivate' : 'Activate';
+                toggleBtn.addEventListener('click', () => toggleUser(u._id, !isActive, toggleBtn));
+                tdAction.appendChild(toggleBtn);
+            }
+            tr.appendChild(tdAction);
+
+            return tr;
+        }
+
+        async function toggleUser(id, newStatus, btn) {
+            const actionWord = newStatus ? 'activate' : 'deactivate';
+            if (!confirm(`Are you sure you want to ${actionWord} this account?`)) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+
+            try {
+                await apiRequest(`/admin/users/${id}/status`, 'PUT', { isActive: newStatus });
+                loadUsers(currentPage);
+            } catch (err) {
+                alert('Failed to update account status: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = newStatus ? 'Activate' : 'Deactivate';
+            }
+        }
+
+        function changePage(delta) {
+            const target = currentPage + delta;
+            if (target >= 1 && target <= totalPages) {
+                loadUsers(target);
+            }
+        }
+
+        // Add Enter key trigger on search input
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') loadUsers(1);
+        });
+
+        loadUsers(1);
+    </script>
+</body>
+</html>

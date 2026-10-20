@@ -8,7 +8,7 @@ const User = require('../models/User');
 // @access  Private (Buyer)
 exports.createInquiry = async (req, res) => {
     try {
-        const { vendor, product, subject, message } = req.body;
+        const { vendor, product, subject, message, inquiryType, bulkQuantity, companyName } = req.body;
 
         // 1. Verify vendor exists and has role 'vendor'
         if (!vendor || !mongoose.Types.ObjectId.isValid(vendor)) {
@@ -54,12 +54,19 @@ exports.createInquiry = async (req, res) => {
             return res.status(400).json({ message: 'Message must be at most 1000 characters' });
         }
 
+        const isBulk = inquiryType === 'bulk';
+        const parsedQty = isBulk ? Math.max(1, parseInt(bulkQuantity, 10) || 1) : undefined;
+        const cleanCompany = isBulk && companyName ? String(companyName).trim().slice(0, 100) : undefined;
+
         const inquiry = new Inquiry({
             buyer: req.user._id,
             vendor: vendorDoc._id,
             product: productObjId,
             subject: trimmedSubject,
             message: trimmedMessage,
+            inquiryType: isBulk ? 'bulk' : 'general',
+            bulkQuantity: parsedQty,
+            companyName: cleanCompany,
             status: 'Open'
         });
 
@@ -134,6 +141,9 @@ exports.replyInquiry = async (req, res) => {
         }
 
         inquiry.vendorReply = trimmedReply;
+        if (req.body.quoteAmount !== undefined && !isNaN(Number(req.body.quoteAmount))) {
+            inquiry.quoteAmount = Math.max(0, Number(req.body.quoteAmount));
+        }
         inquiry.status = 'Replied';
         const updated = await inquiry.save();
         return res.json(updated);

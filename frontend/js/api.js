@@ -52,6 +52,10 @@ function goToProfileSetup(user) {
 
 function goToDashboard(user) {
     if (!user) return;
+    if (user.role === 'admin') {
+        window.location.href = resolvePath('admin/index.html');
+        return;
+    }
     if (user.isProfileComplete === false) {
         goToProfileSetup(user);
         return;

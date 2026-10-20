@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artisan Storefront - VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="../index.html" class="brand">VendorConnect</a>
+        <div class="navbar-nav">
+            <a href="../buyer/marketplace.html" class="btn btn-outline">Explore Marketplace</a>
+            <a href="../authentication/login.html" class="btn btn-secondary">Log In</a>
+            <a href="../authentication/signup.html" class="btn btn-primary">Join as Artisan</a>
+        </div>
+    </nav>
+
+    <div class="container mt-2">
+        <div id="loadingState" class="state-msg">Loading artisan storefront…</div>
+        <div id="errorState" class="state-msg d-none" style="color:var(--danger);"></div>
+
+        <div id="storeContent" class="d-none">
+            <!-- Artisan Header Profile -->
+            <div class="store-header">
+                <div class="d-flex justify-between align-center flex-wrap gap-1">
+                    <div>
+                        <span class="product-badge mb-05 d-inline-block" id="craftCategoryBadge">Artisan Guild</span>
+                        <h1 id="storeBusinessName" class="mb-05 text-primary">Store Name</h1>
+                        <p class="text-muted mb-05" id="storeLocation">📍 Location, India</p>
+                    </div>
+                    <div class="store-actions">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="copyStoreLink()">📋 Copy Store Link</button>
+                        <a id="whatsappShareBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="color:#25D366;border-color:#25D366;">💬 Share on WhatsApp</a>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print Catalog / PDF</button>
+                    </div>
+                </div>
+                <hr style="border:0;border-top:1px solid var(--border);margin:1rem 0;">
+                <h4 class="mb-05">About the Artisan / Guild</h4>
+                <p id="storeAbout" class="text-sm mb-0">Craftsmanship story goes here...</p>
+            </div>
+
+            <!-- Digital Product Catalog -->
+            <div class="d-flex justify-between align-center mb-1 flex-wrap gap-05">
+                <h2>Product Collection (<span id="productCount">0</span>)</h2>
+                <span class="text-sm text-muted">Authentic direct-from-artisan creations</span>
+            </div>
+
+            <div id="productGrid" class="product-grid mb-3"></div>
+
+            <div class="text-center mt-3 mb-3 p-2 bg-nav border-rounded no-print">
+                <h3>Want to order or inquire in bulk?</h3>
+                <p class="text-muted">Create a free buyer account to place verified orders, send bulk quote requests, and chat directly with Indian artisans.</p>
+                <a href="../authentication/signup.html" class="btn btn-primary">Create Buyer Account</a>
+                <a href="../authentication/login.html" class="btn btn-outline ml-1">Log In</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="copyToast" class="copy-toast d-none">✓ Storefront link copied to clipboard!</div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const vendorId = urlParams.get('vendor');
+
+        async function loadStorefront() {
+            const loadingEl = document.getElementById('loadingState');
+            const errorEl = document.getElementById('errorState');
+            const contentEl = document.getElementById('storeContent');
+
+            if (!vendorId) {
+                loadingEl.classList.add('d-none');
+                errorEl.textContent = 'No vendor specified. Please provide a vendor ID in the URL (?vendor=...).';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+
+            try {
+                const data = await apiRequest('/public/store/' + encodeURIComponent(vendorId), 'GET');
+                
+                loadingEl.classList.add('d-none');
+                contentEl.classList.remove('d-none');
+
+                renderStoreDetails(data.vendor, data.products || []);
+            } catch (err) {
+                loadingEl.classList.add('d-none');
+                errorEl.textContent = err.message || 'Failed to load artisan storefront.';
+                errorEl.classList.remove('d-none');
+            }
+        }
+
+        function renderStoreDetails(vendor, products) {
+            document.title = (vendor.businessName || vendor.artisanName) + ' - Digital Storefront | VendorConnect';
+            document.getElementById('storeBusinessName').textContent = vendor.businessName || vendor.artisanName;
+            document.getElementById('craftCategoryBadge').textContent = vendor.craftCategory || 'Traditional Crafts';
+            document.getElementById('storeLocation').textContent = '📍 ' + (vendor.location || 'India');
+            document.getElementById('storeAbout').textContent = vendor.about || 'Welcome to our authentic artisan shop! Every product is lovingly handcrafted with generational skill.';
+            document.getElementById('productCount').textContent = products.length;
+
+            // WhatsApp Share link
+            const shareText = encodeURIComponent(`Explore authentic handcrafted products from ${vendor.businessName || vendor.artisanName} on VendorConnect: ${window.location.href}`);
+            document.getElementById('whatsappShareBtn').href = `https://wa.me/?text=${shareText}`;
+
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = '';
+
+            if (products.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'state-msg w-100';
+                empty.textContent = 'This artisan has not published any public products yet. Please check back soon!';
+                grid.appendChild(empty);
+                return;
+            }
+
+            products.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'card card-hover d-flex flex-column';
+
+                const imgWrapper = document.createElement('div');
+                imgWrapper.className = 'w-100 mb-1 product-img-wrapper';
+                const img = document.createElement('img');
+                img.src = p.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80';
+                img.alt = p.name;
+                img.className = 'w-100 product-img';
+                imgWrapper.appendChild(img);
+                card.appendChild(imgWrapper);
+
+                const info = document.createElement('div');
+                info.className = 'flex-1 d-flex flex-column';
+
+                const badge = document.createElement('span');
+                badge.className = 'product-badge';
+                badge.textContent = p.category || 'Handicraft';
+                info.appendChild(badge);
+
+                const title = document.createElement('h3');
+                title.className = 'mb-05 mt-05';
+                title.textContent = p.name;
+                info.appendChild(title);
+
+                const priceRow = document.createElement('div');
+                priceRow.className = 'd-flex justify-between align-center mb-1';
+                const price = document.createElement('span');
+                price.className = 'price text-primary font-bold';
+                price.textContent = '₹' + p.price;
+                priceRow.appendChild(price);
+
+                const stock = document.createElement('span');
+                stock.className = p.stock > 0 ? 'text-xs text-muted' : 'text-xs text-danger font-bold';
+                stock.textContent = p.stock > 0 ? `${p.stock} in stock` : 'Out of stock';
+                priceRow.appendChild(stock);
+                info.appendChild(priceRow);
+
+                const orderBtn = document.createElement('a');
+                orderBtn.className = 'btn btn-primary w-100 text-center mt-auto no-print';
+                orderBtn.href = `../buyer/product.html?id=${p._id}`;
+                orderBtn.textContent = 'Log In to Order / Inquire';
+                info.appendChild(orderBtn);
+
+                card.appendChild(info);
+                grid.appendChild(card);
+            });
+        }
+
+        function copyStoreLink() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                const toast = document.getElementById('copyToast');
+                toast.classList.remove('d-none');
+                setTimeout(() => {
+                    toast.classList.add('d-none');
+                }, 2500);
+            }).catch(() => {
+                alert('Storefront link: ' + window.location.href);
+            });
+        }
+
+        loadStorefront();
+    </script>
+</body>
+</html>

@@ -22,6 +22,11 @@ const protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'User no longer exists' });
             }
 
+            // Inactive users cannot make protected requests
+            if (req.user.isActive === false) {
+                return res.status(403).json({ message: 'Account has been deactivated. Please contact support.' });
+            }
+
             return next();
         } catch (error) {
             console.error('Auth protect error:', error.message);
@@ -50,4 +55,12 @@ const buyerOnly = (req, res, next) => {
     return res.status(403).json({ message: 'Not authorized as a buyer' });
 };
 
-module.exports = { protect, vendorOnly, buyerOnly };
+// Middleware restricting access to platform administrators only
+const adminOnly = (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        return next();
+    }
+    return res.status(403).json({ message: 'Not authorized as an admin' });
+};
+
+module.exports = { protect, vendorOnly, buyerOnly, adminOnly };

@@ -7,7 +7,8 @@ const {
     getProducts, 
     getProductById, 
     updateProduct,
-    getCategories
+    getCategories,
+    exportVendorListings
 } = require('../controllers/productController');
 const { protect, vendorOnly } = require('../middleware/authMiddleware');
 
@@ -20,6 +21,9 @@ router.route('/categories')
 
 router.route('/vendor')
     .get(protect, vendorOnly, getVendorProducts);
+
+router.route('/vendor/export')
+    .get(protect, vendorOnly, exportVendorListings);
 
 router.route('/:id')
     .get(getProductById)

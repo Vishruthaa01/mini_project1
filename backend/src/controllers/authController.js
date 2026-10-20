@@ -28,6 +28,7 @@ function publicUser(user) {
     location: user.location || '',
     about: user.about || '',
     isProfileComplete: Boolean(user.isProfileComplete),
+    isActive: user.isActive !== false,
   };
 }
 
@@ -40,6 +41,10 @@ exports.signup = async (req, res) => {
     }
     if (password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    if (role === 'admin') {
+      return res.status(400).json({ message: 'Admin accounts cannot be created via signup' });
     }
 
     const safeRole = role === 'vendor' ? 'vendor' : 'buyer';
@@ -99,6 +104,11 @@ exports.login = async (req, res) => {
 
     if (!passwordOk) {
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if account has been deactivated by administrator
+    if (user.isActive === false) {
+      return res.status(403).json({ message: 'Account has been deactivated. Please contact support.' });
     }
 
     res.json({ token: createToken(user), user: publicUser(user) });

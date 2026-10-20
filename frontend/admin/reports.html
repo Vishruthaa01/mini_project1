@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moderation Reports Queue - Admin | VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="brand">VendorConnect <span class="badge badge-warning text-xs">ADMIN</span></a>
+        <div class="navbar-nav">
+            <a href="index.html" class="btn btn-outline">Dashboard</a>
+            <a href="users.html" class="btn btn-outline">Users</a>
+            <a href="products.html" class="btn btn-outline">Products</a>
+            <a href="orders.html" class="btn btn-outline">Orders</a>
+            <a href="reports.html" class="btn btn-primary">Reports</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container mt-2">
+        <div class="d-flex justify-between align-center mb-1 flex-wrap gap-1">
+            <div>
+                <h2>Moderation Reports Queue</h2>
+                <p class="text-muted mb-0">Review complaints regarding counterfeit goods, inaccurate craft claims, or policy violations</p>
+            </div>
+            <span class="text-sm font-bold">Total: <span id="totalReportCount">0</span> reports</span>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="card p-1 mb-2">
+            <div class="d-flex gap-1 flex-wrap align-center">
+                <select id="statusFilter" class="form-control mb-0" style="flex:1;min-width:150px;">
+                    <option value="">All Statuses</option>
+                    <option value="open" selected>Open (Pending)</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="dismissed">Dismissed</option>
+                </select>
+                <select id="targetTypeFilter" class="form-control mb-0" style="flex:1;min-width:150px;">
+                    <option value="">All Target Types</option>
+                    <option value="product">Reported Products</option>
+                    <option value="user">Reported Users</option>
+                </select>
+                <button type="button" class="btn btn-primary" onclick="loadReports(1)">Filter</button>
+            </div>
+        </div>
+
+        <div id="stateMsg" class="state-msg">Loading reports…</div>
+
+        <div id="reportsContainer" class="card d-none">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Reported Item / Entity</th>
+                            <th>Reporter</th>
+                            <th>Complaint Reason</th>
+                            <th>Status</th>
+                            <th>Resolution Note</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-between align-center p-1 border-top" id="paginationRow">
+                <span class="text-xs text-muted" id="pageInfoText">Page 1 of 1</span>
+                <div class="d-flex gap-05">
+                    <button type="button" id="prevPageBtn" class="btn btn-outline btn-sm" onclick="changePage(-1)">Previous</button>
+                    <button type="button" id="nextPageBtn" class="btn btn-outline btn-sm" onclick="changePage(1)">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resolution Modal -->
+    <div id="resolveModal" class="d-none" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;">
+        <div class="card p-2" style="max-width:480px;width:90%;background:#fff;">
+            <div class="d-flex justify-between align-center mb-1">
+                <h3 class="mb-0" id="modalHeading">Resolve Moderation Report</h3>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeResolveModal()">✕</button>
+            </div>
+            <p class="text-sm text-muted mb-1" id="modalTargetInfo"></p>
+            <div id="modalStatusMsg" class="d-none"></div>
+            <form onsubmit="submitResolution(event)">
+                <div class="form-group mb-1">
+                    <label class="form-label" for="decisionSelect">Decision *</label>
+                    <select id="decisionSelect" class="form-control" required>
+                        <option value="resolved">Mark as Resolved (Action Taken)</option>
+                        <option value="dismissed">Dismiss (No Violation Found)</option>
+                    </select>
+                </div>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="adminNoteInput">Administrative Resolution Note (Optional)</label>
+                    <textarea id="adminNoteInput" class="form-control" rows="3" placeholder="e.g. Verified listing against artisan guild documentation; product unhidden... or seller warned." maxlength="500"></textarea>
+                </div>
+                <div class="d-flex justify-between mt-2">
+                    <button type="button" class="btn btn-outline" onclick="closeResolveModal()">Cancel</button>
+                    <button type="submit" id="modalSubmitBtn" class="btn btn-primary">Save Decision</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const adminUser = requireAuth('admin', false);
+        if (!adminUser) throw new Error('redirect');
+
+        let currentPage = 1;
+        let totalPages = 1;
+        let activeReportId = null;
+
+        async function loadReports(page = 1) {
+            currentPage = page;
+            const stateMsg = document.getElementById('stateMsg');
+            const container = document.getElementById('reportsContainer');
+            const tbody = document.getElementById('reportsTableBody');
+
+            stateMsg.textContent = 'Loading reports queue…';
+            stateMsg.classList.remove('d-none');
+            container.classList.add('d-none');
+
+            const status = document.getElementById('statusFilter').value;
+            const targetType = document.getElementById('targetTypeFilter').value;
+
+            const params = new URLSearchParams({ page: currentPage, limit: 15 });
+            if (status) params.set('status', status);
+            if (targetType) params.set('targetType', targetType);
+
+            try {
+                const data = await apiRequest('/admin/reports?' + params.toString(), 'GET');
+
+                document.getElementById('totalReportCount').textContent = data.total;
+                totalPages = data.totalPages || 1;
+                document.getElementById('pageInfoText').textContent = `Page ${data.page} of ${totalPages} (${data.total} reports)`;
+                document.getElementById('prevPageBtn').disabled = data.page <= 1;
+                document.getElementById('nextPageBtn').disabled = data.page >= totalPages;
+
+                tbody.innerHTML = '';
+
+                if (data.reports.length === 0) {
+                    const row = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 7;
+                    td.className = 'text-center p-2 text-muted';
+                    td.textContent = 'No moderation reports found for selected filters.';
+                    row.appendChild(td);
+                    tbody.appendChild(row);
+                } else {
+                    data.reports.forEach(r => tbody.appendChild(buildReportRow(r)));
+                }
+
+                stateMsg.classList.add('d-none');
+                container.classList.remove('d-none');
+            } catch (err) {
+                stateMsg.textContent = 'Failed to load reports: ' + err.message;
+            }
+        }
+
+        function buildReportRow(r) {
+            const tr = document.createElement('tr');
+
+            // 1. Target Type
+            const tdType = document.createElement('td');
+            const typeChip = document.createElement('span');
+            typeChip.className = 'badge ' + (r.targetType === 'product' ? 'badge-primary' : 'badge-warning');
+            typeChip.textContent = r.targetType.toUpperCase();
+            tdType.appendChild(typeChip);
+            tr.appendChild(tdType);
+
+            // 2. Reported Entity
+            const tdTarget = document.createElement('td');
+            if (r.targetType === 'product') {
+                if (r.targetDetails) {
+                    const link = document.createElement('a');
+                    link.href = `../buyer/product.html?id=${r.targetDetails._id || r.target}`;
+                    link.target = '_blank';
+                    link.className = 'font-bold';
+                    link.textContent = r.targetDetails.name || 'Product';
+                    tdTarget.appendChild(link);
+                    const sub = document.createElement('div');
+                    sub.className = 'text-xs text-muted';
+                    sub.textContent = `${r.targetDetails.category || ''} · ₹${r.targetDetails.price || 0}`;
+                    tdTarget.appendChild(sub);
+                } else {
+                    tdTarget.textContent = 'Product ID: ' + r.target;
+                }
+            } else {
+                if (r.targetDetails) {
+                    const uName = document.createElement('strong');
+                    uName.textContent = r.targetDetails.name;
+                    tdTarget.appendChild(uName);
+                    const uSub = document.createElement('div');
+                    uSub.className = 'text-xs text-muted';
+                    uSub.textContent = `${r.targetDetails.role} · ${r.targetDetails.email}`;
+                    tdTarget.appendChild(uSub);
+                } else {
+                    tdTarget.textContent = 'User ID: ' + r.target;
+                }
+            }
+            tr.appendChild(tdTarget);
+
+            // 3. Reporter
+            const tdReporter = document.createElement('td');
+            if (r.reporter) {
+                const repName = document.createElement('div');
+                repName.className = 'font-bold text-xs';
+                repName.textContent = r.reporter.name;
+                tdReporter.appendChild(repName);
+                const repEmail = document.createElement('div');
+                repEmail.className = 'text-xs text-muted';
+                repEmail.textContent = r.reporter.email;
+                tdReporter.appendChild(repEmail);
+            } else {
+                tdReporter.textContent = 'Unknown User';
+            }
+            tr.appendChild(tdReporter);
+
+            // 4. Reason
+            const tdReason = document.createElement('td');
+            tdReason.style.maxWidth = '250px';
+            const reasonText = document.createElement('div');
+            reasonText.className = 'text-sm';
+            reasonText.textContent = r.reason;
+            tdReason.appendChild(reasonText);
+            const dateText = document.createElement('div');
+            dateText.className = 'text-xs text-muted mt-05';
+            dateText.textContent = r.createdAt ? new Date(r.createdAt).toLocaleString() : '';
+            tdReason.appendChild(dateText);
+            tr.appendChild(tdReason);
+
+            // 5. Status
+            const tdStatus = document.createElement('td');
+            const sChip = document.createElement('span');
+            const sColor = r.status === 'open' ? 'badge-danger' : r.status === 'resolved' ? 'badge-success' : 'badge-outline';
+            sChip.className = 'badge ' + sColor;
+            sChip.textContent = r.status.toUpperCase();
+            tdStatus.appendChild(sChip);
+            tr.appendChild(tdStatus);
+
+            // 6. Admin Resolution Note
+            const tdNote = document.createElement('td');
+            tdNote.className = 'text-xs';
+            tdNote.textContent = r.adminNote || '—';
+            tr.appendChild(tdNote);
+
+            // 7. Action
+            const tdAction = document.createElement('td');
+            if (r.status === 'open') {
+                const reviewBtn = document.createElement('button');
+                reviewBtn.type = 'button';
+                reviewBtn.className = 'btn btn-primary btn-sm';
+                reviewBtn.textContent = 'Resolve / Dismiss';
+                reviewBtn.addEventListener('click', () => openResolveModal(r));
+                tdAction.appendChild(reviewBtn);
+            } else {
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'btn btn-outline btn-sm';
+                editBtn.textContent = 'Update Note';
+                editBtn.addEventListener('click', () => openResolveModal(r));
+                tdAction.appendChild(editBtn);
+            }
+            tr.appendChild(tdAction);
+
+            return tr;
+        }
+
+        function openResolveModal(report) {
+            activeReportId = report._id;
+            document.getElementById('modalTargetInfo').textContent = `Report #${report._id.slice(-6).toUpperCase()} against ${report.targetType}`;
+            document.getElementById('decisionSelect').value = report.status === 'dismissed' ? 'dismissed' : 'resolved';
+            document.getElementById('adminNoteInput').value = report.adminNote || '';
+            document.getElementById('modalStatusMsg').className = 'd-none';
+            document.getElementById('resolveModal').classList.remove('d-none');
+        }
+
+        function closeResolveModal() {
+            document.getElementById('resolveModal').classList.add('d-none');
+            activeReportId = null;
+        }
+
+        async function submitResolution(e) {
+            e.preventDefault();
+            if (!activeReportId) return;
+
+            const btn = document.getElementById('modalSubmitBtn');
+            const statusEl = document.getElementById('modalStatusMsg');
+            const status = document.getElementById('decisionSelect').value;
+            const adminNote = document.getElementById('adminNoteInput').value.trim();
+
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+
+            try {
+                await apiRequest(`/admin/reports/${activeReportId}`, 'PUT', { status, adminNote });
+                statusEl.textContent = '✓ Report decision saved successfully!';
+                statusEl.className = 'text-success mb-1 font-bold';
+                setTimeout(() => {
+                    closeResolveModal();
+                    loadReports(currentPage);
+                }, 1200);
+            } catch (err) {
+                statusEl.textContent = 'Error: ' + err.message;
+                statusEl.className = 'text-danger mb-1 font-bold';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Decision';
+            }
+        }
+
+        function changePage(delta) {
+            const target = currentPage + delta;
+            if (target >= 1 && target <= totalPages) {
+                loadReports(target);
+            }
+        }
+
+        loadReports(1);
+    </script>
+</body>
+</html>

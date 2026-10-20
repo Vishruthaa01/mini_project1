@@ -48,12 +48,17 @@
             </div>
         </div>
 
-        <div class="flex flex-between align-center mb-2">
+        <div class="flex flex-between align-center mb-2 flex-wrap gap-1">
             <div>
                 <h2 class="mb-05">Product Listing</h2>
                 <p class="mb-0">Manage your product inventory and catalog</p>
             </div>
-            <a href="add-product.html" class="btn btn-primary">+ Add Product</a>
+            <div class="d-flex gap-05 flex-wrap">
+                <a id="publicStoreBtn" href="#" target="_blank" class="btn btn-outline">🏪 My Digital Storefront</a>
+                <button type="button" class="btn btn-outline" onclick="exportCatalog('csv')">📥 Export CSV</button>
+                <button type="button" class="btn btn-outline" onclick="exportCatalog('json')">📄 Export JSON</button>
+                <a href="add-product.html" class="btn btn-primary">+ Add Product</a>
+            </div>
         </div>
 
         <div id="emptyState" class="card text-center p-4 d-none">
@@ -260,6 +265,41 @@
                 alert('Error deleting product: ' + error.message);
             }
         }
+
+        function exportCatalog(format) {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const url = `http://localhost:5000/api/products/vendor/export?format=${format}`;
+
+            fetch(url, { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(res => {
+                    if (!res.ok) throw new Error('Export request failed: ' + res.status);
+                    return res.blob();
+                })
+                .then(blob => {
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = `artisan_catalog_${new Date().toISOString().slice(0, 10)}.${format}`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(downloadUrl);
+                })
+                .catch(err => alert('Failed to export catalog: ' + err.message));
+        }
+
+        // Configure storefront link with current user's ID
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const u = JSON.parse(userStr);
+                const storeBtn = document.getElementById('publicStoreBtn');
+                if (storeBtn && u.id) {
+                    storeBtn.href = `../public/store.html?vendor=${u.id}`;
+                }
+            }
+        } catch (e) {}
     </script>
 </body>
 </html>

@@ -33,6 +33,22 @@ const inquirySchema = new mongoose.Schema(
         vendorReply: {
             type: String,
             default: ''
+        },
+        inquiryType: {
+            type: String,
+            enum: ['general', 'bulk'],
+            default: 'general'
+        },
+        bulkQuantity: {
+            type: Number,
+            min: 1
+        },
+        companyName: {
+            type: String,
+            trim: true
+        },
+        quoteAmount: {
+            type: Number
         }
     },
     {

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Orders Overview - Admin | VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="brand">VendorConnect <span class="badge badge-warning text-xs">ADMIN</span></a>
+        <div class="navbar-nav">
+            <a href="index.html" class="btn btn-outline">Dashboard</a>
+            <a href="users.html" class="btn btn-outline">Users</a>
+            <a href="products.html" class="btn btn-outline">Products</a>
+            <a href="orders.html" class="btn btn-primary">Orders</a>
+            <a href="reports.html" class="btn btn-outline">Reports</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container mt-2">
+        <div class="d-flex justify-between align-center mb-1 flex-wrap gap-1">
+            <div>
+                <h2>Master Orders Overview</h2>
+                <p class="text-muted mb-0">Platform-wide transaction log across all buyers and artisan workshops</p>
+            </div>
+            <span class="text-sm font-bold">Total: <span id="totalOrderCount">0</span> orders</span>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="card p-1 mb-2">
+            <div class="d-flex gap-1 flex-wrap align-center">
+                <select id="statusFilter" class="form-control mb-0" style="flex:1;min-width:180px;">
+                    <option value="">All Order Statuses</option>
+                    <option value="Placed">Placed</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Processing">Processing</option>
+                    <option value="Shipped">Shipped</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+                <button type="button" class="btn btn-primary" onclick="loadOrders(1)">Filter</button>
+            </div>
+        </div>
+
+        <div id="stateMsg" class="state-msg">Loading orders…</div>
+
+        <div id="ordersContainer" class="card d-none">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Buyer</th>
+                            <th>Artisan / Vendor</th>
+                            <th>Items</th>
+                            <th>Total</th>
+                            <th>Payment</th>
+                            <th>Status</th>
+                            <th>Placed At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-between align-center p-1 border-top" id="paginationRow">
+                <span class="text-xs text-muted" id="pageInfoText">Page 1 of 1</span>
+                <div class="d-flex gap-05">
+                    <button type="button" id="prevPageBtn" class="btn btn-outline btn-sm" onclick="changePage(-1)">Previous</button>
+                    <button type="button" id="nextPageBtn" class="btn btn-outline btn-sm" onclick="changePage(1)">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const adminUser = requireAuth('admin', false);
+        if (!adminUser) throw new Error('redirect');
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        async function loadOrders(page = 1) {
+            currentPage = page;
+            const stateMsg = document.getElementById('stateMsg');
+            const container = document.getElementById('ordersContainer');
+            const tbody = document.getElementById('ordersTableBody');
+
+            stateMsg.textContent = 'Loading master orders…';
+            stateMsg.classList.remove('d-none');
+            container.classList.add('d-none');
+
+            const status = document.getElementById('statusFilter').value;
+            const params = new URLSearchParams({ page: currentPage, limit: 15 });
+            if (status) params.set('status', status);
+
+            try {
+                const data = await apiRequest('/admin/orders?' + params.toString(), 'GET');
+
+                document.getElementById('totalOrderCount').textContent = data.total;
+                totalPages = data.totalPages || 1;
+                document.getElementById('pageInfoText').textContent = `Page ${data.page} of ${totalPages} (${data.total} orders)`;
+                document.getElementById('prevPageBtn').disabled = data.page <= 1;
+                document.getElementById('nextPageBtn').disabled = data.page >= totalPages;
+
+                tbody.innerHTML = '';
+
+                if (data.orders.length === 0) {
+                    const row = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 8;
+                    td.className = 'text-center p-2 text-muted';
+                    td.textContent = 'No orders matching selected criteria.';
+                    row.appendChild(td);
+                    tbody.appendChild(row);
+                } else {
+                    data.orders.forEach(o => tbody.appendChild(buildOrderRow(o)));
+                }
+
+                stateMsg.classList.add('d-none');
+                container.classList.remove('d-none');
+            } catch (err) {
+                stateMsg.textContent = 'Failed to load master orders: ' + err.message;
+            }
+        }
+
+        function buildOrderRow(o) {
+            const tr = document.createElement('tr');
+
+            // 1. Order ID
+            const tdId = document.createElement('td');
+            const code = document.createElement('code');
+            code.textContent = '#' + o._id.slice(-6).toUpperCase();
+            tdId.appendChild(code);
+            tr.appendChild(tdId);
+
+            // 2. Buyer
+            const tdBuyer = document.createElement('td');
+            if (o.buyer) {
+                const bName = document.createElement('strong');
+                bName.textContent = o.buyer.name;
+                tdBuyer.appendChild(bName);
+                const bEmail = document.createElement('div');
+                bEmail.className = 'text-xs text-muted';
+                bEmail.textContent = o.buyer.email;
+                tdBuyer.appendChild(bEmail);
+            } else {
+                tdBuyer.textContent = 'Guest / Unknown';
+            }
+            tr.appendChild(tdBuyer);
+
+            // 3. Vendor
+            const tdVendor = document.createElement('td');
+            if (o.vendor) {
+                const vName = document.createElement('strong');
+                vName.textContent = o.vendor.businessName || o.vendor.name;
+                tdVendor.appendChild(vName);
+                const vLoc = document.createElement('div');
+                vLoc.className = 'text-xs text-muted';
+                vLoc.textContent = o.vendor.location || 'India';
+                tdVendor.appendChild(vLoc);
+            } else {
+                tdVendor.textContent = 'Unknown Vendor';
+            }
+            tr.appendChild(tdVendor);
+
+            // 4. Items summary
+            const tdItems = document.createElement('td');
+            const count = (o.items || []).reduce((acc, i) => acc + (i.quantity || 1), 0);
+            tdItems.textContent = `${count} item(s)`;
+            tr.appendChild(tdItems);
+
+            // 5. Total
+            const tdTotal = document.createElement('td');
+            tdTotal.className = 'font-bold text-primary';
+            tdTotal.textContent = '₹' + Number(o.totalAmount || 0).toLocaleString('en-IN');
+            tr.appendChild(tdTotal);
+
+            // 6. Payment status
+            const tdPay = document.createElement('td');
+            const payChip = document.createElement('span');
+            const isPaid = o.paymentStatus === 'Completed';
+            payChip.className = 'badge ' + (isPaid ? 'badge-success' : 'badge-warning');
+            payChip.textContent = o.paymentStatus || 'Pending';
+            tdPay.appendChild(payChip);
+            tr.appendChild(tdPay);
+
+            // 7. Order status
+            const tdStatus = document.createElement('td');
+            const statusChip = document.createElement('span');
+            const statusClass = 'badge-' + (o.orderStatus || '').toLowerCase();
+            statusChip.className = 'badge ' + statusClass;
+            statusChip.textContent = o.orderStatus;
+            tdStatus.appendChild(statusChip);
+            tr.appendChild(tdStatus);
+
+            // 8. Date
+            const tdDate = document.createElement('td');
+            tdDate.className = 'text-xs text-muted';
+            tdDate.textContent = o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—';
+            tr.appendChild(tdDate);
+
+            return tr;
+        }
+
+        function changePage(delta) {
+            const target = currentPage + delta;
+            if (target >= 1 && target <= totalPages) {
+                loadOrders(target);
+            }
+        }
+
+        loadOrders(1);
+    </script>
+</body>
+</html>

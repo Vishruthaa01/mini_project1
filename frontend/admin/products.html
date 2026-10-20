@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moderate Products - Admin | VendorConnect</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="brand">VendorConnect <span class="badge badge-warning text-xs">ADMIN</span></a>
+        <div class="navbar-nav">
+            <a href="index.html" class="btn btn-outline">Dashboard</a>
+            <a href="users.html" class="btn btn-outline">Users</a>
+            <a href="products.html" class="btn btn-primary">Products</a>
+            <a href="orders.html" class="btn btn-outline">Orders</a>
+            <a href="reports.html" class="btn btn-outline">Reports</a>
+            <a href="../authentication/login.html" class="btn btn-secondary" onclick="localStorage.clear()">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container mt-2">
+        <div class="d-flex justify-between align-center mb-1 flex-wrap gap-1">
+            <div>
+                <h2>Artisan Catalog Moderation</h2>
+                <p class="text-muted mb-0">Review handicraft listings, audit pricing, and hide inappropriate or counterfeit items</p>
+            </div>
+            <span class="text-sm font-bold">Total: <span id="totalProductCount">0</span> items</span>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="card p-1 mb-2">
+            <div class="d-flex gap-1 flex-wrap align-center">
+                <input type="text" id="searchInput" class="form-control mb-0" style="flex:2;min-width:200px;" placeholder="Search by product name, description…">
+                <select id="categoryFilter" class="form-control mb-0" style="flex:1;min-width:160px;">
+                    <option value="">All Categories</option>
+                </select>
+                <select id="visibilityFilter" class="form-control mb-0" style="flex:1;min-width:140px;">
+                    <option value="">All Visibility</option>
+                    <option value="visible">Visible on Storefronts</option>
+                    <option value="hidden">Hidden by Admin</option>
+                </select>
+                <button type="button" class="btn btn-primary" onclick="loadProducts(1)">Filter</button>
+            </div>
+        </div>
+
+        <div id="stateMsg" class="state-msg">Loading catalog…</div>
+
+        <div id="productsContainer" class="card d-none">
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Artisan / Guild</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Visibility</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-between align-center p-1 border-top" id="paginationRow">
+                <span class="text-xs text-muted" id="pageInfoText">Page 1 of 1</span>
+                <div class="d-flex gap-05">
+                    <button type="button" id="prevPageBtn" class="btn btn-outline btn-sm" onclick="changePage(-1)">Previous</button>
+                    <button type="button" id="nextPageBtn" class="btn btn-outline btn-sm" onclick="changePage(1)">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script>
+        const adminUser = requireAuth('admin', false);
+        if (!adminUser) throw new Error('redirect');
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        async function initFilters() {
+            try {
+                const categories = await apiRequest('/products/categories', 'GET');
+                const catSelect = document.getElementById('categoryFilter');
+                categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.textContent = cat;
+                    catSelect.appendChild(opt);
+                });
+            } catch (e) {}
+            loadProducts(1);
+        }
+
+        async function loadProducts(page = 1) {
+            currentPage = page;
+            const stateMsg = document.getElementById('stateMsg');
+            const container = document.getElementById('productsContainer');
+            const tbody = document.getElementById('productsTableBody');
+
+            stateMsg.textContent = 'Loading catalog items…';
+            stateMsg.classList.remove('d-none');
+            container.classList.add('d-none');
+
+            const q = document.getElementById('searchInput').value.trim();
+            const category = document.getElementById('categoryFilter').value;
+            const visibility = document.getElementById('visibilityFilter').value;
+
+            const params = new URLSearchParams({ page: currentPage, limit: 15 });
+            if (q) params.set('q', q);
+            if (category) params.set('category', category);
+            if (visibility) params.set('visibility', visibility);
+
+            try {
+                const data = await apiRequest('/admin/products?' + params.toString(), 'GET');
+
+                document.getElementById('totalProductCount').textContent = data.total;
+                totalPages = data.totalPages || 1;
+                document.getElementById('pageInfoText').textContent = `Page ${data.page} of ${totalPages} (${data.total} listings)`;
+                document.getElementById('prevPageBtn').disabled = data.page <= 1;
+                document.getElementById('nextPageBtn').disabled = data.page >= totalPages;
+
+                tbody.innerHTML = '';
+
+                if (data.products.length === 0) {
+                    const row = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 7;
+                    td.className = 'text-center p-2 text-muted';
+                    td.textContent = 'No matching products found.';
+                    row.appendChild(td);
+                    tbody.appendChild(row);
+                } else {
+                    data.products.forEach(p => tbody.appendChild(buildProductRow(p)));
+                }
+
+                stateMsg.classList.add('d-none');
+                container.classList.remove('d-none');
+            } catch (err) {
+                stateMsg.textContent = 'Failed to load products: ' + err.message;
+            }
+        }
+
+        function buildProductRow(p) {
+            const tr = document.createElement('tr');
+
+            // 1. Item Photo & Name
+            const tdItem = document.createElement('td');
+            const itemFlex = document.createElement('div');
+            itemFlex.className = 'd-flex align-center gap-05';
+
+            const img = document.createElement('img');
+            img.className = 'thumb-img';
+            img.src = p.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=150&q=80';
+            img.alt = p.name;
+            itemFlex.appendChild(img);
+
+            const details = document.createElement('div');
+            const titleEl = document.createElement('a');
+            titleEl.href = `../buyer/product.html?id=${p._id}`;
+            titleEl.target = '_blank';
+            titleEl.className = 'font-bold';
+            titleEl.textContent = p.name;
+            details.appendChild(titleEl);
+
+            if (p.titleHi) {
+                const hiTitle = document.createElement('div');
+                hiTitle.className = 'text-xs text-muted';
+                hiTitle.textContent = p.titleHi;
+                details.appendChild(hiTitle);
+            }
+            itemFlex.appendChild(details);
+            tdItem.appendChild(itemFlex);
+            tr.appendChild(tdItem);
+
+            // 2. Category
+            const tdCat = document.createElement('td');
+            const catBadge = document.createElement('span');
+            catBadge.className = 'product-badge';
+            catBadge.textContent = p.category;
+            tdCat.appendChild(catBadge);
+            tr.appendChild(tdCat);
+
+            // 3. Artisan Vendor
+            const tdVendor = document.createElement('td');
+            if (p.vendor) {
+                const vName = document.createElement('strong');
+                vName.textContent = p.vendor.businessName || p.vendor.name;
+                tdVendor.appendChild(vName);
+                const vLoc = document.createElement('div');
+                vLoc.className = 'text-xs text-muted';
+                vLoc.textContent = p.vendor.location || 'India';
+                tdVendor.appendChild(vLoc);
+            } else {
+                tdVendor.textContent = 'Unknown Vendor';
+            }
+            tr.appendChild(tdVendor);
+
+            // 4. Price
+            const tdPrice = document.createElement('td');
+            tdPrice.className = 'font-bold text-primary';
+            tdPrice.textContent = '₹' + p.price;
+            tr.appendChild(tdPrice);
+
+            // 5. Stock
+            const tdStock = document.createElement('td');
+            tdStock.textContent = p.stock > 0 ? `${p.stock} units` : 'Out of stock';
+            tdStock.className = p.stock > 0 ? 'text-xs text-muted' : 'text-xs text-danger font-bold';
+            tr.appendChild(tdStock);
+
+            // 6. Visibility Status
+            const tdVis = document.createElement('td');
+            const visChip = document.createElement('span');
+            const isHidden = p.isHidden === true;
+            visChip.className = 'badge ' + (isHidden ? 'badge-danger' : 'badge-success');
+            visChip.textContent = isHidden ? 'Hidden (Blocked)' : 'Public Active';
+            tdVis.appendChild(visChip);
+            tr.appendChild(tdVis);
+
+            // 7. Actions (Hide / Unhide toggle)
+            const tdAction = document.createElement('td');
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'btn btn-sm ' + (isHidden ? 'btn-outline' : 'btn-danger');
+            toggleBtn.textContent = isHidden ? 'Make Visible' : 'Hide from Public';
+            toggleBtn.addEventListener('click', () => toggleVisibility(p._id, !isHidden, toggleBtn));
+            tdAction.appendChild(toggleBtn);
+            tr.appendChild(tdAction);
+
+            return tr;
+        }
+
+        async function toggleVisibility(id, newHidden, btn) {
+            const actionWord = newHidden ? 'hide this product from all public buyer storefronts' : 'restore public visibility for this product';
+            if (!confirm(`Are you sure you want to ${actionWord}?`)) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+
+            try {
+                await apiRequest(`/admin/products/${id}/visibility`, 'PUT', { isHidden: newHidden });
+                loadProducts(currentPage);
+            } catch (err) {
+                alert('Failed to update product visibility: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = newHidden ? 'Hide from Public' : 'Make Visible';
+            }
+        }
+
+        function changePage(delta) {
+            const target = currentPage + delta;
+            if (target >= 1 && target <= totalPages) {
+                loadProducts(target);
+            }
+        }
+
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') loadProducts(1);
+        });
+
+        initFilters();
+    </script>
+</body>
+</html>

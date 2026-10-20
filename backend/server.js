@@ -34,6 +34,9 @@ app.use('/api/orders', require('./src/routes/orderRoutes'));
 app.use('/api/inquiries', require('./src/routes/inquiryRoutes'));
 app.use('/api/reviews', require('./src/routes/reviewRoutes'));
 app.use('/api/ai', require('./src/routes/aiRoutes'));
+app.use('/api/admin', require('./src/routes/adminRoutes'));
+app.use('/api/public', require('./src/routes/publicRoutes'));
+app.use('/api/reports', require('./src/routes/reportRoutes'));
 
 // 404 handler for unknown /api routes
 app.use('/api', (req, res) => {
