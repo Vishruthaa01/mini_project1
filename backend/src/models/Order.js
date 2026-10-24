@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const User = require('./User');
 
 const orderItemSchema = new mongoose.Schema({
     product: {
@@ -51,7 +52,7 @@ const orderSchema = new mongoose.Schema(
         },
         paymentMethod: {
             type: String,
-            enum: ['Cash on Delivery', 'UPI', 'Card', 'Net Banking'],
+            enum: ['Cash on Delivery', 'COD', 'UPI', 'Card', 'Net Banking'],
             default: 'Cash on Delivery'
         },
         paymentStatus: {

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const User = require('../models/User');
 
 // Allowed status transition map for vendor order management
 const ALLOWED_TRANSITIONS = {
@@ -73,8 +74,14 @@ exports.createOrder = async (req, res) => {
         const sanitizedAddress = { name, phone, address, city, state, postalCode };
 
         // 4. Payment method check (Only Cash on Delivery is currently supported)
-        if (paymentMethod && paymentMethod !== 'Cash on Delivery') {
-            return res.status(400).json({ message: 'Only Cash on Delivery is accepted for now' });
+        let resolvedPaymentMethod = 'Cash on Delivery';
+        if (paymentMethod) {
+            const normalized = paymentMethod.toString().trim().toLowerCase();
+            if (normalized === 'cash on delivery' || normalized === 'cod') {
+                resolvedPaymentMethod = 'Cash on Delivery';
+            } else {
+                return res.status(400).json({ message: 'Only Cash on Delivery is accepted for now' });
+            }
         }
 
         // 5. Customization note check
@@ -148,7 +155,7 @@ exports.createOrder = async (req, res) => {
                     items: group.items,
                     totalAmount: group.totalAmount,
                     shippingAddress: sanitizedAddress,
-                    paymentMethod: 'Cash on Delivery',
+                    paymentMethod: resolvedPaymentMethod,
                     paymentStatus: 'Pending',
                     orderStatus: 'Placed',
                     customizationNote: trimmedNote

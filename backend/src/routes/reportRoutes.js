@@ -9,7 +9,8 @@ const reportRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5,
     message: { message: 'Too many reports submitted. Please wait before submitting another report.' },
-    keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip)
+    keyGenerator: (req) => (req.user ? req.user._id.toString() : req.ip),
+    validate: { keyGeneratorIpFallback: false }
 });
 
 router.post('/', protect, reportRateLimiter, createReport);

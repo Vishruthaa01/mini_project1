@@ -24,6 +24,12 @@
 
     <div class="container">
         <h2 class="mb-2">My Orders</h2>
+
+        <!-- Order placed success notification -->
+        <div id="placedAlert" class="alert alert-success mb-2 d-none" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; padding:0.85rem 1.25rem; border-radius:var(--border-radius); font-size:0.95rem;">
+            🎉 <strong>Order Placed Successfully!</strong> Your order has been placed with <strong>Cash on Delivery</strong>. You can track its status below.
+        </div>
+
         <div id="stateMsg" class="state-msg">Loading orders…</div>
         <div id="ordersList" class="flex-column gap-2 d-none"></div>
     </div>
@@ -35,6 +41,15 @@
 
         document.getElementById('cartCountBadge').textContent = getCartCount() || '';
         document.getElementById('logoutBtn').addEventListener('click', () => localStorage.clear());
+
+        // Check for ?placed=true query parameter to show confirmation alert
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('placed') === 'true') {
+            const placedAlert = document.getElementById('placedAlert');
+            if (placedAlert) placedAlert.classList.remove('d-none');
+            // Clean up the URL query parameter without page reload
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
 
         // Status display order for the timeline
         const STATUS_STEPS = ['Placed', 'Confirmed', 'Processing', 'Shipped', 'Delivered'];
@@ -48,17 +63,22 @@
 
                 if (!orders || orders.length === 0) {
                     msgEl.textContent = 'No orders yet. Start shopping in the Marketplace!';
+                    msgEl.classList.remove('d-none');
+                    listEl.classList.add('d-none');
                     return;
                 }
 
                 msgEl.classList.add('d-none');
                 listEl.classList.remove('d-none');
+                listEl.innerHTML = ''; // Prevent duplication on re-fetch
 
                 // Newest first
                 orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 orders.forEach(order => listEl.appendChild(buildOrderCard(order)));
             } catch (err) {
                 msgEl.textContent = 'Error loading orders: ' + err.message;
+                msgEl.classList.remove('d-none');
+                listEl.classList.add('d-none');
             }
         }
 
@@ -66,20 +86,26 @@
             const card = document.createElement('div');
             card.className = 'card';
 
-            // ── Header: order ID, date, status badge ──
+            // ── Header: order ID, date, vendor, status badge ──
             const header = document.createElement('div');
             header.className = 'flex flex-between align-center mb-1';
 
             const idDate = document.createElement('div');
             const idEl = document.createElement('p');
-            idEl.className = 'text-sm text-muted mb-0';
+            idEl.className = 'text-sm font-bold mb-0';
             idEl.textContent = 'Order #' + order._id.slice(-8).toUpperCase();
             idDate.appendChild(idEl);
 
             const dateEl = document.createElement('p');
             dateEl.className = 'text-xs text-muted mb-0';
-            dateEl.textContent = new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+            dateEl.textContent = 'Placed on ' + new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
             idDate.appendChild(dateEl);
+
+            const vendorName = (order.vendor && (order.vendor.businessName || order.vendor.name)) || 'Artisan Vendor';
+            const vendorEl = document.createElement('p');
+            vendorEl.className = 'text-xs text-muted mb-0';
+            vendorEl.textContent = 'Sold by: ' + vendorName;
+            idDate.appendChild(vendorEl);
 
             header.appendChild(idDate);
 
@@ -108,6 +134,7 @@
                 row.appendChild(img);
 
                 const info = document.createElement('div');
+                info.style.flex = '1';
 
                 const nameEl = document.createElement('p');
                 nameEl.className = 'mb-0 font-bold text-sm';
@@ -133,26 +160,73 @@
                 card.appendChild(row);
             });
 
-            // ── Total & shipping ──
+            // ── Order summary & details block ──
+            const detailsBox = document.createElement('div');
+            detailsBox.className = 'border-top mt-1 pt-1 mb-1';
+
+            // Total amount
             const totRow = document.createElement('div');
-            totRow.className = 'flex flex-between border-top mt-1';
+            totRow.className = 'flex flex-between mb-05';
             const totLabel = document.createElement('span');
             totLabel.className = 'font-bold';
-            totLabel.textContent = 'Total';
+            totLabel.textContent = 'Total Amount';
             const totAmt = document.createElement('span');
             totAmt.className = 'font-bold text-primary';
             totAmt.textContent = '₹' + (order.totalAmount || 0);
             totRow.appendChild(totLabel);
             totRow.appendChild(totAmt);
-            card.appendChild(totRow);
+            detailsBox.appendChild(totRow);
+
+            // Payment info
+            const payRow = document.createElement('div');
+            payRow.className = 'flex flex-between align-center mb-05 text-sm';
+            const payLabel = document.createElement('span');
+            payLabel.className = 'text-muted';
+            payLabel.textContent = 'Payment Method:';
+            const payVal = document.createElement('span');
+            payVal.className = 'font-bold';
+            payVal.textContent = order.paymentMethod || 'Cash on Delivery';
+            payRow.appendChild(payLabel);
+            payRow.appendChild(payVal);
+            detailsBox.appendChild(payRow);
+
+            const payStatusRow = document.createElement('div');
+            payStatusRow.className = 'flex flex-between align-center mb-05 text-sm';
+            const payStatusLabel = document.createElement('span');
+            payStatusLabel.className = 'text-muted';
+            payStatusLabel.textContent = 'Payment Status:';
+            const payStatusVal = document.createElement('span');
+            const isCompleted = order.paymentStatus === 'Completed';
+            payStatusVal.className = 'badge ' + (isCompleted ? 'badge-success' : 'badge-warning');
+            payStatusVal.textContent = order.paymentStatus || 'Pending';
+            payStatusRow.appendChild(payStatusLabel);
+            payStatusRow.appendChild(payStatusVal);
+            detailsBox.appendChild(payStatusRow);
 
             // Shipping address
             if (order.shippingAddress) {
+                const shipTitle = document.createElement('p');
+                shipTitle.className = 'text-xs text-muted mb-0 font-bold mt-1';
+                shipTitle.textContent = 'Delivery Details:';
+                detailsBox.appendChild(shipTitle);
+
                 const addr = document.createElement('p');
-                addr.className = 'text-sm text-muted mt-05 mb-1';
-                addr.textContent = '📦 ' + (order.shippingAddress.address || '') + ' · ' + (order.shippingAddress.phone || '');
-                card.appendChild(addr);
+                addr.className = 'text-sm text-muted mb-0';
+                const recipient = order.shippingAddress.name ? order.shippingAddress.name + ' · ' : '';
+                const phone = order.shippingAddress.phone ? ' · 📞 ' + order.shippingAddress.phone : '';
+                addr.textContent = '📦 ' + recipient + (order.shippingAddress.address || '') + phone;
+                detailsBox.appendChild(addr);
             }
+
+            // Customization note
+            if (order.customizationNote) {
+                const note = document.createElement('p');
+                note.className = 'text-sm text-muted mt-05 mb-0';
+                note.textContent = '📝 Note: ' + order.customizationNote;
+                detailsBox.appendChild(note);
+            }
+
+            card.appendChild(detailsBox);
 
             // ── Status Timeline ──
             const tlTitle = document.createElement('h4');

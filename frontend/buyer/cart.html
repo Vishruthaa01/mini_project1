@@ -16,7 +16,7 @@
                 Cart <span class="cart-badge" id="cartCountBadge">0</span>
             </a>
             <a href="orders.html" class="btn btn-outline">My Orders</a>
-            <a href="inquiries.html" class="btn btn-outline">Inquiries</a>
+            <a href="inquiries.html" class="btn btn-outline">My Inquiries</a>
             <a href="buyer-profile.html" class="btn btn-outline">My Profile</a>
             <a href="../authentication/login.html" class="btn btn-secondary" id="logoutBtn">Logout</a>
         </div>
@@ -73,19 +73,17 @@
                         placeholder="House/flat no, street, city, pin code"></textarea>
                 </div>
 
-                <!-- Payment method — CoD only for now -->
+                <!-- Payment method — Cash on Delivery only -->
                 <div class="form-group">
                     <label class="form-label">Payment Method</label>
-                    <div class="flex flex-column gap-05">
-                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                            <input type="radio" name="payment" value="COD" checked> Cash on Delivery
+                    <div style="border:1px solid var(--border);border-radius:var(--border-radius);padding:0.75rem 1rem;background:var(--nav-bg);">
+                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;margin-bottom:0;font-weight:600;">
+                            <input type="radio" name="payment" value="Cash on Delivery" checked>
+                            <span>Cash on Delivery (COD)</span>
                         </label>
-                        <label style="display:flex;align-items:center;gap:0.5rem;opacity:0.5;cursor:not-allowed;" title="Coming soon">
-                            <input type="radio" name="payment" value="UPI" disabled> UPI (coming soon)
-                        </label>
-                        <label style="display:flex;align-items:center;gap:0.5rem;opacity:0.5;cursor:not-allowed;" title="Coming soon">
-                            <input type="radio" name="payment" value="Card" disabled> Card (coming soon)
-                        </label>
+                        <p class="text-xs text-muted mb-0" style="margin-top:0.35rem;margin-left:1.5rem;">
+                            Pay in cash when your order is delivered to your doorstep.
+                        </p>
                     </div>
                 </div>
 
@@ -254,7 +252,8 @@
             }
 
             const shippingAddress = { name, phone, address };
-            const paymentMethod   = document.querySelector('input[name="payment"]:checked').value;
+            const paymentRadio = document.querySelector('input[name="payment"]:checked');
+            const paymentMethod = paymentRadio ? paymentRadio.value : 'Cash on Delivery';
             const customizationNote = document.getElementById('customNote').value.trim();
 
             // Items array: only productId + quantity (server recalculates price)
@@ -265,9 +264,9 @@
 
             try {
                 await apiRequest('/orders', 'POST', { items, shippingAddress, paymentMethod, customizationNote });
-                // Clear cart on success and go to orders page
+                // Clear cart on success and go to orders page with placed banner
                 localStorage.removeItem('cart');
-                window.location.href = 'orders.html';
+                window.location.href = 'orders.html?placed=true';
             } catch (err) {
                 msgEl.style.color = '#ff4757';
                 // 409 means stock conflict — server gives a helpful message
