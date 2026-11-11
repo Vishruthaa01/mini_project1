@@ -5,12 +5,19 @@ const cors = require('cors');
 const connectDB = require('./src/config/db');
 
 const dns = require('dns');
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+if (
+    !process.env.RAILWAY_ENVIRONMENT &&
+    process.env.MONGO_URI &&
+    process.env.MONGO_URI.startsWith('mongodb+srv://')
+) {
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+}
 
 const path = require('path');
 const app = express();
 const mongoose = require('mongoose');
 
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors());
@@ -42,6 +49,9 @@ app.use('/api/reports', require('./src/routes/reportRoutes'));
 app.use('/api', (req, res) => {
     return res.status(404).json({ message: 'API route not found' });
 });
+
+// Serve frontend static files so the entire application runs at a single URL
+app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // Centralized error handler returning safe { message } without exposing internal 5xx details
 app.use((err, req, res, next) => {

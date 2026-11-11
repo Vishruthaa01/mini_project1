@@ -27,7 +27,7 @@
 
         <!-- Order placed success notification -->
         <div id="placedAlert" class="alert alert-success mb-2 d-none" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; padding:0.85rem 1.25rem; border-radius:var(--border-radius); font-size:0.95rem;">
-            🎉 <strong>Order Placed Successfully!</strong> Your order has been placed with <strong>Cash on Delivery</strong>. You can track its status below.
+            <strong>Order placed successfully!</strong> You can track its status and payment below.
         </div>
 
         <div id="stateMsg" class="state-msg">Loading orders…</div>
@@ -46,7 +46,14 @@
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('placed') === 'true') {
             const placedAlert = document.getElementById('placedAlert');
-            if (placedAlert) placedAlert.classList.remove('d-none');
+            if (placedAlert) {
+                if (urlParams.get('payment') === 'razorpay') {
+                    placedAlert.innerHTML = '🎉 <strong>Payment Successful &amp; Order Placed!</strong> Your payment has been confirmed via <strong>Razorpay</strong>. You can track its status below.';
+                } else {
+                    placedAlert.innerHTML = '🎉 <strong>Order Placed Successfully!</strong> Your order has been placed with <strong>Cash on Delivery</strong>. You can track its status below.';
+                }
+                placedAlert.classList.remove('d-none');
+            }
             // Clean up the URL query parameter without page reload
             window.history.replaceState({}, document.title, window.location.pathname);
         }
@@ -110,7 +117,7 @@
             header.appendChild(idDate);
 
             const badge = document.createElement('span');
-            badge.className = 'badge badge-' + (order.orderStatus || '').toLowerCase();
+            badge.className = 'badge ' + (order.orderStatus === 'Awaiting Payment' ? 'badge-warning' : 'badge-' + (order.orderStatus || '').toLowerCase());
             badge.textContent = order.orderStatus || '';
             header.appendChild(badge);
 
@@ -196,12 +203,25 @@
             payStatusLabel.className = 'text-muted';
             payStatusLabel.textContent = 'Payment Status:';
             const payStatusVal = document.createElement('span');
-            const isCompleted = order.paymentStatus === 'Completed';
-            payStatusVal.className = 'badge ' + (isCompleted ? 'badge-success' : 'badge-warning');
+            const payBadgeClass = order.paymentStatus === 'Completed' ? 'badge-success' : (order.paymentStatus === 'Failed' ? 'badge-danger' : 'badge-warning');
+            payStatusVal.className = 'badge ' + payBadgeClass;
             payStatusVal.textContent = order.paymentStatus || 'Pending';
             payStatusRow.appendChild(payStatusLabel);
             payStatusRow.appendChild(payStatusVal);
             detailsBox.appendChild(payStatusRow);
+
+            if (order.razorpayPaymentId) {
+                const txRow = document.createElement('div');
+                txRow.className = 'flex flex-between align-center mb-05 text-xs';
+                const txLabel = document.createElement('span');
+                txLabel.className = 'text-muted';
+                txLabel.textContent = 'Transaction ID:';
+                const txVal = document.createElement('code');
+                txVal.textContent = order.razorpayPaymentId;
+                txRow.appendChild(txLabel);
+                txRow.appendChild(txVal);
+                detailsBox.appendChild(txRow);
+            }
 
             // Shipping address
             if (order.shippingAddress) {
@@ -239,6 +259,11 @@
                 cancelP.className = 'badge badge-cancelled';
                 cancelP.textContent = 'Order Cancelled';
                 card.appendChild(cancelP);
+            } else if (order.orderStatus === 'Awaiting Payment') {
+                const paymentPending = document.createElement('p');
+                paymentPending.className = 'badge badge-warning';
+                paymentPending.textContent = 'Awaiting payment';
+                card.appendChild(paymentPending);
             } else {
                 const currentIdx = STATUS_STEPS.indexOf(order.orderStatus);
                 const ul = document.createElement('ul');
@@ -256,14 +281,20 @@
                 card.appendChild(ul);
             }
 
-            // ── Cancel button (only if status is Placed) ──
-            if (order.orderStatus === 'Placed') {
+            // ── Cancel button (only before fulfillment begins) ──
+            const canCancel = order.orderStatus === 'Awaiting Payment' || (order.orderStatus === 'Placed' && order.paymentMethod !== 'Razorpay');
+            if (canCancel) {
                 const cancelBtn = document.createElement('button');
                 cancelBtn.className = 'btn btn-danger mt-1';
                 cancelBtn.textContent = 'Cancel Order';
                 cancelBtn.dataset.orderId = order._id;
                 cancelBtn.addEventListener('click', cancelOrder);
                 card.appendChild(cancelBtn);
+            } else if (order.paymentMethod === 'Razorpay' && order.paymentStatus === 'Completed' && ['Placed', 'Confirmed', 'Processing'].includes(order.orderStatus)) {
+                const infoP = document.createElement('p');
+                infoP.className = 'text-xs text-muted mt-1 mb-0';
+                infoP.textContent = '🔒 Paid online via Razorpay. For cancellation or refunds, please contact support.';
+                card.appendChild(infoP);
             }
 
             return card;

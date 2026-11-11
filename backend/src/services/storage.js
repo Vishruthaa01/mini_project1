@@ -25,7 +25,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
  * @param {string} extension - File extension including dot (e.g. '.webp' or '.jpg')
  * @returns {Promise<{ filename: string, absoluteUrl: string, filePath: string }>}
  */
-async function saveProductImage(buffer, extension = '.webp') {
+async function saveProductImage(buffer, extension = '.webp', requestBaseUrl = '') {
     // Generate secure random unguessable filename
     const safeExt = extension.startsWith('.') ? extension : `.${extension}`;
     const filename = `${crypto.randomUUID()}${safeExt}`;
@@ -34,8 +34,9 @@ async function saveProductImage(buffer, extension = '.webp') {
     // Write file to disk asynchronously
     await fs.promises.writeFile(filePath, buffer);
 
-    // Build absolute URL using PUBLIC_BASE_URL (defaults to http://localhost:5000)
-    const baseUrl = (process.env.PUBLIC_BASE_URL || 'http://localhost:5000').replace(/\/+$/, '');
+    // Build absolute URL using PUBLIC_BASE_URL, request origin, or localhost fallback
+    const fallbackOrigin = (requestBaseUrl || '').trim() || 'http://localhost:5000';
+    const baseUrl = (process.env.PUBLIC_BASE_URL || fallbackOrigin).replace(/\/+$/, '');
     const absoluteUrl = `${baseUrl}/uploads/products/${filename}`;
 
     return {

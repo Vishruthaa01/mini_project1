@@ -143,6 +143,8 @@ router.post('/enhance-image', protect, vendorOnly, aiRateLimiter, handleImageUpl
     const aiServiceUrl = (process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
     const aiServiceKey = process.env.AI_SERVICE_KEY || 'your_shared_service_secret_key_here';
 
+    const requestOrigin = req.get('host') ? `${req.protocol}://${req.get('host')}` : '';
+
     try {
         // Forward image buffer to Python AI Service using Node's built-in FormData and fetch
         const formData = new FormData();
@@ -165,7 +167,7 @@ router.post('/enhance-image', protect, vendorOnly, aiRateLimiter, handleImageUpl
             const enhancedBuffer = Buffer.from(arrayBuffer);
 
             // Save enhanced WebP file to disk
-            const saved = await saveProductImage(enhancedBuffer, '.webp');
+            const saved = await saveProductImage(enhancedBuffer, '.webp', requestOrigin);
 
             return res.json({
                 imageUrl: saved.absoluteUrl,
@@ -183,7 +185,7 @@ router.post('/enhance-image', protect, vendorOnly, aiRateLimiter, handleImageUpl
         console.warn('Image enhancement fallback triggered:', error.message);
 
         try {
-            const savedOriginal = await saveProductImage(req.file.buffer, detectedExt);
+            const savedOriginal = await saveProductImage(req.file.buffer, detectedExt, requestOrigin);
             return res.json({
                 imageUrl: savedOriginal.absoluteUrl,
                 enhanced: false,

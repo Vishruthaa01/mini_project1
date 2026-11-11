@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const razorpayService = require('../services/razorpayService');
 
 // Allowed status transition map for vendor order management
 const ALLOWED_TRANSITIONS = {
@@ -73,14 +74,21 @@ exports.createOrder = async (req, res) => {
         }
         const sanitizedAddress = { name, phone, address, city, state, postalCode };
 
-        // 4. Payment method check (Only Cash on Delivery is currently supported)
+        // 4. Validate payment method
         let resolvedPaymentMethod = 'Cash on Delivery';
         if (paymentMethod) {
             const normalized = paymentMethod.toString().trim().toLowerCase();
             if (normalized === 'cash on delivery' || normalized === 'cod') {
                 resolvedPaymentMethod = 'Cash on Delivery';
+            } else if (normalized === 'razorpay') {
+                resolvedPaymentMethod = 'Razorpay';
+                if (!razorpayService.isConfigured()) {
+                    return res.status(503).json({
+                        message: 'Online payments are not configured. Please use Cash on Delivery or contact support.'
+                    });
+                }
             } else {
-                return res.status(400).json({ message: 'Only Cash on Delivery is accepted for now' });
+                return res.status(400).json({ message: 'Unsupported payment method' });
             }
         }
 
@@ -98,6 +106,11 @@ exports.createOrder = async (req, res) => {
             const productDoc = await Product.findById(prodId);
             if (!productDoc) {
                 return res.status(404).json({ message: 'One or more items in your cart are no longer available. Please refresh your cart.' });
+            }
+            if (productDoc.stock < qty) {
+                return res.status(409).json({
+                    message: `Not enough stock for ${productDoc.name}. Requested: ${qty}, Available: ${productDoc.stock}`
+                });
             }
 
             const vendorKey = productDoc.vendor.toString();
@@ -123,13 +136,34 @@ exports.createOrder = async (req, res) => {
             });
         }
 
+        let razorpayOrder = null;
+        if (resolvedPaymentMethod === 'Razorpay') {
+            const amount = Math.round(
+                [...vendorGroups.values()].reduce((sum, group) => sum + group.totalAmount, 0) * 100
+            );
+            if (!Number.isSafeInteger(amount) || amount < 100) {
+                return res.status(400).json({ message: 'Order total is invalid for online payment' });
+            }
+
+            try {
+                razorpayOrder = await razorpayService.createOrder(amount, req.user._id);
+            } catch (error) {
+                console.error('Razorpay order creation failed:', razorpayService.extractErrorMessage(error));
+                return res.status(error.statusCode || 502).json({
+                    message: error.statusCode === 503
+                        ? razorpayService.extractErrorMessage(error)
+                        : 'Could not start online payment. Please try again.'
+                });
+            }
+        }
+
         // 7. Atomically decrease stock with rollback on insufficient stock
         const decrementedList = [];
         for (const item of itemsToDecrement) {
             const updated = await Product.findOneAndUpdate(
                 { _id: item.productId, stock: { $gte: item.qty } },
                 { $inc: { stock: -item.qty } },
-                { new: true }
+                { returnDocument: 'after' }
             );
 
             if (!updated) {
@@ -156,8 +190,9 @@ exports.createOrder = async (req, res) => {
                     totalAmount: group.totalAmount,
                     shippingAddress: sanitizedAddress,
                     paymentMethod: resolvedPaymentMethod,
+                    razorpayOrderId: razorpayOrder ? razorpayOrder.id : '',
                     paymentStatus: 'Pending',
-                    orderStatus: 'Placed',
+                    orderStatus: razorpayOrder ? 'Awaiting Payment' : 'Placed',
                     customizationNote: trimmedNote
                 });
                 const saved = await order.save();
@@ -175,14 +210,265 @@ exports.createOrder = async (req, res) => {
             throw orderSaveError;
         }
 
-        return res.status(201).json({ orders: createdOrders });
+        return res.status(201).json({
+            orders: createdOrders,
+            ...(razorpayOrder && {
+                razorpay: {
+                    keyId: razorpayService.getKeyId(),
+                    orderId: razorpayOrder.id,
+                    amount: razorpayOrder.amount,
+                    currency: razorpayOrder.currency,
+                    demoMode: razorpayOrder.demoMode === true
+                }
+            })
+        });
     } catch (error) {
         console.error('Error creating order:', error.message);
         return res.status(500).json({ message: 'Server error creating order' });
     }
 };
 
-// @desc    Cancel order (buyer only, only while Placed)
+async function getCapturedRazorpayPayment(orderId, paymentId, expectedAmount) {
+    let payment = await razorpayService.fetchPayment(paymentId);
+    if (
+        payment.order_id !== orderId ||
+        payment.amount !== expectedAmount ||
+        payment.currency !== 'INR'
+    ) {
+        const error = new Error('Payment details do not match this order');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (payment.status === 'authorized') {
+        payment = await razorpayService.capturePayment(paymentId, expectedAmount);
+    }
+    if (payment.status !== 'captured') {
+        const error = new Error('Razorpay has not captured this payment');
+        error.statusCode = 409;
+        throw error;
+    }
+
+    return payment;
+}
+
+async function markRazorpayOrdersPaid(orders, payment, signature = '') {
+    const updateFields = {
+        orderStatus: 'Placed',
+        paymentStatus: 'Completed',
+        razorpayPaymentId: payment.id,
+        paidAt: new Date()
+    };
+    if (signature) {
+        updateFields.razorpaySignature = signature;
+    }
+
+    const updateResult = await Order.updateMany(
+        {
+            _id: { $in: orders.map(order => order._id) },
+            orderStatus: 'Awaiting Payment',
+            paymentStatus: 'Pending'
+        },
+        {
+            $set: updateFields
+        }
+    );
+
+    return updateResult.modifiedCount === orders.length;
+}
+
+async function cancelRazorpayOrderGroup(buyerId, razorpayOrderId) {
+    const orders = await Order.find({ buyer: buyerId, razorpayOrderId });
+    if (orders.length === 0) {
+        const error = new Error('Pending Razorpay order not found');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const alreadyPaid = orders.every(order =>
+        order.orderStatus === 'Placed' &&
+        order.paymentStatus === 'Completed' &&
+        order.razorpayPaymentId
+    );
+    if (alreadyPaid) {
+        return { paymentCompleted: true, orders };
+    }
+
+    if (orders.some(order =>
+        order.orderStatus !== 'Awaiting Payment' || order.paymentStatus !== 'Pending'
+    )) {
+        const error = new Error('This order can no longer be cancelled');
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const expectedAmount = Math.round(
+        orders.reduce((sum, order) => sum + order.totalAmount, 0) * 100
+    );
+    const paymentList = await razorpayService.fetchOrderPayments(razorpayOrderId);
+    const payment = (paymentList.items || []).find(item =>
+        item.status === 'captured' || item.status === 'authorized'
+    );
+
+    if (payment) {
+        const capturedPayment = await getCapturedRazorpayPayment(
+            razorpayOrderId,
+            payment.id,
+            expectedAmount
+        );
+        if (!await markRazorpayOrdersPaid(orders, capturedPayment)) {
+            const error = new Error('Order status changed while confirming payment. Please refresh your orders.');
+            error.statusCode = 409;
+            throw error;
+        }
+        return { paymentCompleted: true, orders };
+    }
+
+    const cancelledOrders = [];
+    for (const order of orders) {
+        const cancelled = await Order.findOneAndUpdate(
+            {
+                _id: order._id,
+                buyer: buyerId,
+                orderStatus: 'Awaiting Payment',
+                paymentStatus: 'Pending'
+            },
+            { $set: { orderStatus: 'Cancelled', paymentStatus: 'Failed' } },
+            { returnDocument: 'after' }
+        );
+        if (cancelled) cancelledOrders.push(cancelled);
+    }
+
+    for (const order of cancelledOrders) {
+        for (const item of order.items) {
+            await Product.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
+        }
+    }
+
+    if (cancelledOrders.length !== orders.length) {
+        const error = new Error('Order status changed while cancelling. Please refresh your orders.');
+        error.statusCode = 409;
+        throw error;
+    }
+
+    return { paymentCompleted: false, orders: cancelledOrders };
+}
+
+exports.demoAuthorizeRazorpayPayment = async (req, res) => {
+    try {
+        if (!razorpayService.isDemoMode()) {
+            return res.status(403).json({
+                message: 'Local payment simulator is only enabled when RAZORPAY_DEMO_MODE=true and live/test API keys are not configured.'
+            });
+        }
+
+        const { razorpayOrderId, method } = req.body;
+        if (typeof razorpayOrderId !== 'string' || !razorpayOrderId.trim()) {
+            return res.status(400).json({ message: 'Razorpay order ID is required' });
+        }
+
+        const orderId = razorpayOrderId.trim();
+        const orders = await Order.find({ buyer: req.user._id, razorpayOrderId: orderId });
+        if (orders.length === 0) {
+            return res.status(404).json({ message: 'Pending Razorpay order not found' });
+        }
+
+        if (orders.some(order =>
+            order.orderStatus !== 'Awaiting Payment' || order.paymentStatus !== 'Pending'
+        )) {
+            return res.status(409).json({ message: 'This order is no longer awaiting payment' });
+        }
+
+        const expectedAmount = Math.round(
+            orders.reduce((sum, order) => sum + order.totalAmount, 0) * 100
+        );
+        const simResult = razorpayService.createDemoPayment(orderId, expectedAmount, method);
+
+        return res.json({
+            razorpay_order_id: simResult.razorpay_order_id,
+            razorpay_payment_id: simResult.razorpay_payment_id,
+            razorpay_signature: simResult.razorpay_signature
+        });
+    } catch (error) {
+        const errMsg = razorpayService.extractErrorMessage(error, 'Could not simulate payment authorization.');
+        console.error('Error in demo payment authorization:', errMsg);
+        return res.status(error.statusCode || 500).json({ message: errMsg });
+    }
+};
+
+exports.verifyRazorpayPayment = async (req, res) => {
+    try {
+        const { razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature } = req.body;
+        if (!orderId || !paymentId || !signature) {
+            return res.status(400).json({ message: 'Razorpay payment details are required' });
+        }
+
+        if (!razorpayService.verifySignature(orderId, paymentId, signature)) {
+            return res.status(400).json({ message: 'Razorpay payment signature is invalid' });
+        }
+
+        const orders = await Order.find({ buyer: req.user._id, razorpayOrderId: orderId });
+        if (orders.length === 0) {
+            return res.status(404).json({ message: 'Razorpay order not found' });
+        }
+
+        if (orders.every(order =>
+            order.orderStatus === 'Placed' &&
+            order.paymentStatus === 'Completed' &&
+            order.razorpayPaymentId === paymentId
+        )) {
+            return res.json({ message: 'Payment verified', orders });
+        }
+
+        if (orders.some(order =>
+            order.orderStatus !== 'Awaiting Payment' || order.paymentStatus !== 'Pending'
+        )) {
+            return res.status(409).json({ message: 'This order is no longer awaiting payment' });
+        }
+
+        const expectedAmount = Math.round(
+            orders.reduce((sum, order) => sum + order.totalAmount, 0) * 100
+        );
+        const payment = await getCapturedRazorpayPayment(orderId, paymentId, expectedAmount);
+        if (!await markRazorpayOrdersPaid(orders, payment, signature)) {
+            return res.status(409).json({ message: 'Order status changed while confirming payment. Please refresh your orders.' });
+        }
+
+        const updatedOrders = await Order.find({ buyer: req.user._id, razorpayOrderId: orderId });
+        return res.json({ message: 'Payment verified', orders: updatedOrders });
+    } catch (error) {
+        const errMsg = razorpayService.extractErrorMessage(error, 'Could not verify payment with Razorpay. Please retry verification.');
+        console.error('Error verifying Razorpay payment:', errMsg);
+        return res.status(error.statusCode || 502).json({
+            message: error.statusCode ? errMsg : 'Could not verify payment with Razorpay. Please retry verification.'
+        });
+    }
+};
+
+exports.cancelRazorpayPayment = async (req, res) => {
+    try {
+        const { razorpayOrderId } = req.body;
+        if (typeof razorpayOrderId !== 'string' || !razorpayOrderId.trim()) {
+            return res.status(400).json({ message: 'Razorpay order ID is required' });
+        }
+
+        const result = await cancelRazorpayOrderGroup(req.user._id, razorpayOrderId.trim());
+        return res.json({
+            message: result.paymentCompleted
+                ? 'Payment was captured and the order has been confirmed'
+                : 'Payment was not completed and the order was cancelled',
+            ...result
+        });
+    } catch (error) {
+        const errMsg = razorpayService.extractErrorMessage(error, 'Could not confirm payment status with Razorpay. Please try again.');
+        console.error('Error cancelling Razorpay payment:', errMsg);
+        return res.status(error.statusCode || 502).json({
+            message: error.statusCode ? errMsg : 'Could not confirm payment status with Razorpay. Please try again.'
+        });
+    }
+};
+
+// @desc    Cancel order (buyer only, before fulfillment)
 // @route   PUT /api/orders/:id/cancel
 // @access  Private (Buyer)
 exports.cancelOrder = async (req, res) => {
@@ -192,23 +478,35 @@ exports.cancelOrder = async (req, res) => {
             return res.status(400).json({ message: 'Invalid order ID' });
         }
 
+        const existingOrder = await Order.findById(id);
+        if (!existingOrder) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+        if (existingOrder.buyer.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to cancel this order' });
+        }
+        if (existingOrder.paymentMethod === 'Razorpay') {
+            if (existingOrder.orderStatus === 'Awaiting Payment') {
+                const result = await cancelRazorpayOrderGroup(req.user._id, existingOrder.razorpayOrderId);
+                if (result.paymentCompleted) {
+                    return res.status(409).json({ message: 'Payment was already completed. The order has been confirmed.' });
+                }
+                return res.json({ message: 'Order cancelled successfully', order: result.orders });
+            }
+            if (existingOrder.paymentStatus === 'Completed') {
+                return res.status(400).json({ message: 'Paid Razorpay orders cannot be cancelled online. Contact support for a refund.' });
+            }
+        }
+
         // Atomically transition from 'Placed' to 'Cancelled' for the authenticated buyer
         // This ensures concurrent requests cannot restore stock more than once
         const updatedOrder = await Order.findOneAndUpdate(
             { _id: id, buyer: req.user._id, orderStatus: 'Placed' },
             { $set: { orderStatus: 'Cancelled' } },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!updatedOrder) {
-            // Find existing order to give a specific, user-friendly error message
-            const existingOrder = await Order.findById(id);
-            if (!existingOrder) {
-                return res.status(404).json({ message: 'Order not found' });
-            }
-            if (existingOrder.buyer.toString() !== req.user._id.toString()) {
-                return res.status(403).json({ message: 'Not authorized to cancel this order' });
-            }
             return res.status(400).json({
                 message: `Cannot cancel order with status '${existingOrder.orderStatus}'. Orders can only be cancelled while 'Placed'.`
             });
@@ -248,6 +546,10 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this order' });
         }
 
+        if (orderStatus === 'Cancelled' && order.paymentMethod === 'Razorpay' && order.paymentStatus === 'Completed') {
+            return res.status(400).json({ message: 'Paid Razorpay orders cannot be cancelled here. Contact support for a refund.' });
+        }
+
         // Validate status transition
         if (orderStatus && orderStatus !== order.orderStatus) {
             const allowed = ALLOWED_TRANSITIONS[order.orderStatus] || [];
@@ -262,7 +564,7 @@ exports.updateOrderStatus = async (req, res) => {
             const updated = await Order.findOneAndUpdate(
                 { _id: id, orderStatus: currentStatus },
                 { $set: { orderStatus } },
-                { new: true }
+                { returnDocument: 'after' }
             );
 
             if (!updated) {
@@ -281,6 +583,9 @@ exports.updateOrderStatus = async (req, res) => {
 
         // Validate paymentStatus: can only become 'Completed' when order is Delivered
         if (paymentStatus) {
+            if (order.paymentMethod === 'Razorpay') {
+                return res.status(400).json({ message: 'Razorpay payment status can only be changed by verified payment confirmation' });
+            }
             if (paymentStatus === 'Completed' && order.orderStatus !== 'Delivered') {
                 return res.status(400).json({
                     message: 'Payment status can only be set to Completed when the order is Delivered'
@@ -317,7 +622,7 @@ exports.getMyOrders = async (req, res) => {
 // @access  Private (Vendor)
 exports.getVendorOrders = async (req, res) => {
     try {
-        const orders = await Order.find({ vendor: req.user._id })
+        const orders = await Order.find({ vendor: req.user._id, orderStatus: { $ne: 'Awaiting Payment' } })
             .populate('buyer', 'name email phone')
             .sort({ createdAt: -1 });
         return res.json(orders);

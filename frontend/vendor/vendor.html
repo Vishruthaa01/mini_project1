@@ -269,7 +269,7 @@
         function exportCatalog(format) {
             const token = localStorage.getItem('token');
             if (!token) return;
-            const url = `http://localhost:5000/api/products/vendor/export?format=${format}`;
+            const url = `${API_BASE}/products/vendor/export?format=${format}`;
 
             fetch(url, { headers: { 'Authorization': `Bearer ${token}` } })
                 .then(res => {

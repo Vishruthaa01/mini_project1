@@ -66,7 +66,7 @@ exports.getAdminDashboard = async (req, res) => {
         };
         orderCounts.forEach(o => {
             if (ordersByStatus[o._id] !== undefined) ordersByStatus[o._id] = o.count;
-            ordersByStatus.total += o.count;
+            if (o._id !== 'Awaiting Payment') ordersByStatus.total += o.count;
         });
 
         const totalRevenue = deliveredRevenueResult[0] ? deliveredRevenueResult[0].totalRevenue : 0;
@@ -269,6 +269,8 @@ exports.getAdminOrders = async (req, res) => {
 
         if (status) {
             query.orderStatus = status;
+        } else {
+            query.orderStatus = { $ne: 'Awaiting Payment' };
         }
 
         const currentPage = Math.max(1, parseInt(page, 10) || 1);

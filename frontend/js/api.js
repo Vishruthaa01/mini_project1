@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = (window.location.port === '3000' || window.location.port === '5500' || window.location.protocol === 'file:')
+    ? 'http://localhost:5000/api'
+    : window.location.origin + '/api';
 
 async function apiRequest(path, method = 'GET', body = null) {
     const headers = { 'Content-Type': 'application/json' };

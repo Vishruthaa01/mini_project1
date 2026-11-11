@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { 
     createOrder, 
+    demoAuthorizeRazorpayPayment,
+    verifyRazorpayPayment,
+    cancelRazorpayPayment,
     cancelOrder,
     getMyOrders, 
     getVendorOrders, 
@@ -12,6 +15,15 @@ const { protect, vendorOnly, buyerOnly } = require('../middleware/authMiddleware
 
 router.route('/')
     .post(protect, buyerOnly, createOrder);
+
+router.route('/razorpay/demo-authorize')
+    .post(protect, buyerOnly, demoAuthorizeRazorpayPayment);
+
+router.route('/razorpay/verify')
+    .post(protect, buyerOnly, verifyRazorpayPayment);
+
+router.route('/razorpay/cancel')
+    .post(protect, buyerOnly, cancelRazorpayPayment);
 
 router.route('/my-orders')
     .get(protect, buyerOnly, getMyOrders);

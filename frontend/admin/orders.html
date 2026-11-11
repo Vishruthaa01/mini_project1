@@ -182,16 +182,20 @@
             // 6. Payment status
             const tdPay = document.createElement('td');
             const payChip = document.createElement('span');
-            const isPaid = o.paymentStatus === 'Completed';
-            payChip.className = 'badge ' + (isPaid ? 'badge-success' : 'badge-warning');
+            const payClass = o.paymentStatus === 'Completed' ? 'badge-success' : (o.paymentStatus === 'Failed' ? 'badge-danger' : 'badge-warning');
+            payChip.className = 'badge ' + payClass;
             payChip.textContent = o.paymentStatus || 'Pending';
             tdPay.appendChild(payChip);
+            const payMethodDiv = document.createElement('div');
+            payMethodDiv.className = 'text-xs text-muted';
+            payMethodDiv.textContent = o.paymentMethod || 'COD';
+            tdPay.appendChild(payMethodDiv);
             tr.appendChild(tdPay);
 
             // 7. Order status
             const tdStatus = document.createElement('td');
             const statusChip = document.createElement('span');
-            const statusClass = 'badge-' + (o.orderStatus || '').toLowerCase();
+            const statusClass = o.orderStatus === 'Awaiting Payment' ? 'badge-warning' : 'badge-' + (o.orderStatus || '').toLowerCase();
             statusChip.className = 'badge ' + statusClass;
             statusChip.textContent = o.orderStatus;
             tdStatus.appendChild(statusChip);
